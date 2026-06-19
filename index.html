@@ -24,11 +24,10 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const auth = firebase.auth();
-auth.signInAnonymously().catch(()=>{});
-db.settings({cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED});
 db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
 
+// معرف ثابت للبيانات المشتركة بين كل الأجهزة
+const CLOUD_DOC = 'ahmedalynawy2005_data';
 const DB_KEYS=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual'];
 
 window.showSyncStatus=function(msg){
@@ -44,20 +43,23 @@ window.saveAllToCloud=async function(){
   try{
     const all={};
     DB_KEYS.forEach(k=>{const v=localStorage.getItem('tdb_'+k);if(v)all[k]=JSON.parse(v);});
-    await db.collection('tdb').doc('__all__').set({value:JSON.stringify(all)});
+    await db.collection('tdb').doc(CLOUD_DOC).set({value:JSON.stringify(all),updated:Date.now()});
     showSyncStatus('✅ تمت المزامنة');
-  }catch(e){showSyncStatus('📵 لا يوجد إنترنت — محفوظ محلياً');}
+  }catch(e){
+    console.log('save error:',e.code,e.message);
+    showSyncStatus('📵 لا يوجد إنترنت — محفوظ محلياً');
+  }
 };
 
 window.loadFromCloud=async function(){
   try{
-    const snap=await db.collection('tdb').doc('__all__').get();
+    const snap=await db.collection('tdb').doc(CLOUD_DOC).get();
     if(snap.exists){
       const allData=JSON.parse(snap.data().value);
       Object.keys(allData).forEach(k=>{localStorage.setItem('tdb_'+k,JSON.stringify(allData[k]));});
       return true;
     }
-  }catch(e){}
+  }catch(e){console.log('load error:',e.code,e.message);}
   return false;
 };
 </script>
