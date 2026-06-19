@@ -10,6 +10,56 @@
 <meta name="apple-mobile-web-app-title" content="قاعدة الكلية">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>قاعدة تصميم احميدة العيناوي</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyB2ApaKYijeKrrsoValyUnlALovx35VLWc",
+  authDomain: "ahmedalynawy2005.firebaseapp.com",
+  projectId: "ahmedalynawy2005",
+  storageBucket: "ahmedalynawy2005.firebasestorage.app",
+  messagingSenderId: "509080098937",
+  appId: "1:509080098937:web:e370ff675c79d873601ca8"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+auth.signInAnonymously().catch(()=>{});
+db.enablePersistence().catch(()=>{});
+
+const DB_KEYS=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual'];
+
+window.showSyncStatus=function(msg){
+  let el=document.getElementById('sync-status');
+  if(!el){el=document.createElement('div');el.id='sync-status';
+    el.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#1c1f2e;border:1px solid #2f3347;border-radius:10px;padding:8px 16px;color:#eef0f8;font-size:12px;z-index:9998;transition:opacity .5s;font-family:Tajawal,sans-serif';
+    document.body.appendChild(el);}
+  el.textContent=msg;el.style.opacity='1';
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';},3000);
+};
+
+window.saveAllToCloud=async function(){
+  try{
+    const all={};
+    DB_KEYS.forEach(k=>{const v=localStorage.getItem('tdb_'+k);if(v)all[k]=JSON.parse(v);});
+    await db.collection('tdb').doc('__all__').set({value:JSON.stringify(all)});
+    showSyncStatus('✅ تمت المزامنة');
+  }catch(e){showSyncStatus('📵 لا يوجد إنترنت — محفوظ محلياً');}
+};
+
+window.loadFromCloud=async function(){
+  try{
+    const snap=await db.collection('tdb').doc('__all__').get();
+    if(snap.exists){
+      const allData=JSON.parse(snap.data().value);
+      Object.keys(allData).forEach(k=>{localStorage.setItem('tdb_'+k,JSON.stringify(allData[k]));});
+      return true;
+    }
+  }catch(e){}
+  return false;
+};
+</script>
 
 
 <style>
