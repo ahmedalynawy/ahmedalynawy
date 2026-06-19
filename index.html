@@ -26,7 +26,8 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 auth.signInAnonymously().catch(()=>{});
-db.enablePersistence().catch(()=>{});
+db.settings({cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED});
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
 
 const DB_KEYS=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual'];
 
@@ -981,30 +982,44 @@ function editSlot(day,time){
 function renderExams(c){
   document.getElementById('topbar-actions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="addExam()">＋ إضافة</button>`;
   const render=()=>{
-    // ترتيب من الأقرب للأبعد
+    // ترتيب: مكتمل/قديم → نصفي قريب → نهائي قريب → بعيد → بدون تاريخ
     const today=new Date(); today.setHours(0,0,0,0);
-    const parseExamDate=(e)=>{
-      // get nearest upcoming date from mid or fin
-      const dates=[];
-      if(e.mid&&e.mid.date){
-        const p=e.mid.date.split('/');
-        if(p.length===3){const d=new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'));if(d>=today)dates.push(d);}
-      }
-      if(e.fin&&e.fin.date){
-        const p=e.fin.date.split('/');
-        if(p.length===3){const d=new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'));if(d>=today)dates.push(d);}
-      }
-      if(dates.length)return Math.min(...dates.map(d=>d.getTime()));
-      return null; // past - exclude
+    const parseDate=(str)=>{
+      if(!str)return null;
+      const p=str.split('/');
+      if(p.length===3){const d=new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'));if(!isNaN(d))return d;}
+      return null;
     };
-    const sorted=[...DB.exams].map((e,i)=>({...e,_i:i,_sort:parseExamDate(e)}))
-      .filter(e=>e._sort!==null)
-      .sort((a,b)=>a._sort-b._sort);
-    const rows=sorted.map((e,idx)=>`
-      <tr style="background:var(--surface2)">
+    const getSortKey=(e)=>{
+      const mid=parseDate(e.mid&&e.mid.date);
+      const fin=parseDate(e.fin&&e.fin.date);
+      const midPast=mid&&mid<today;
+      const finPast=fin&&fin<today;
+      // كلاهما قديم أو مكتمل
+      if((midPast||!mid)&&(finPast||!fin)){
+        const last=Math.max(mid?mid.getTime():0,fin?fin.getTime():0);
+        return{group:0,time:last||0};
+      }
+      // أقرب تاريخ قادم
+      const upcoming=[];
+      if(mid&&!midPast)upcoming.push(mid.getTime());
+      if(fin&&!finPast)upcoming.push(fin.getTime());
+      if(upcoming.length)return{group:1,time:Math.min(...upcoming)};
+      return{group:2,time:0};
+    };
+    const sorted=[...DB.exams].map((e,i)=>({...e,_i:i,_sk:getSortKey(e)}))
+      .sort((a,b)=>a._sk.group-b._sk.group||a._sk.time-b._sk.time);
+    const rows=sorted.map((e,idx)=>{
+      const isPast=e._sk.group===0;
+      const midDate=parseDate(e.mid&&e.mid.date);
+      const finDate=parseDate(e.fin&&e.fin.date);
+      const midPast=midDate&&midDate<today;
+      const finPast=finDate&&finDate<today;
+      return`
+      <tr style="background:${isPast?'rgba(100,100,100,.08)':'var(--surface2)'}">
         <td colspan="5" style="padding:6px 10px;border-bottom:1px solid var(--border)">
           <div style="display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:12px;font-weight:800;color:var(--text)">${idx+1}. 📘 ${e.name}</span>
+            <span style="font-size:12px;font-weight:800;color:${isPast?'var(--text2)':'var(--text)'}">${idx+1}. 📘 ${e.name}${isPast?' <span style="font-size:10px;color:var(--text2);font-weight:400">✓ مكتمل</span>':''}</span>
             <div style="display:flex;gap:3px">
               <button style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text2);width:30px;height:28px;font-size:12px;cursor:pointer" onclick="editExam(${e._i})">✏️</button>
               <button style="background:rgba(245,87,108,.12);border:1px solid var(--border);border-radius:6px;color:var(--red);width:30px;height:28px;font-size:12px;cursor:pointer" onclick="delExam(${e._i})">🗑</button>
@@ -1012,20 +1027,21 @@ function renderExams(c){
           </div>
         </td>
       </tr>
-      <tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+      <tr style="border-bottom:1px solid rgba(255,255,255,.04);opacity:${midPast?'.5':'1'}">
         <td style="padding:5px 10px"><span style="background:rgba(79,172,254,.15);color:var(--blue);padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap">🕐 نصفي</span></td>
         <td style="padding:5px 6px;font-size:11px;color:var(--text)">${e.mid.date||'—'}</td>
         <td style="padding:5px 6px;font-size:11px;color:var(--text)">${e.mid.day||'—'}</td>
         <td style="padding:5px 6px;font-size:11px;color:var(--text)">${e.mid.time||'—'}</td>
         <td style="padding:5px 6px"><span style="background:rgba(79,172,254,.12);color:var(--blue);padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700">${e.mid.room||'—'}</span></td>
       </tr>
-      <tr style="border-bottom:2px solid var(--border)">
+      <tr style="border-bottom:2px solid var(--border);opacity:${finPast?'.5':'1'}">
         <td style="padding:5px 10px"><span style="background:rgba(108,99,255,.15);color:var(--accent);padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap">🎓 نهائي</span></td>
         <td style="padding:5px 6px;font-size:11px;color:var(--text)">${e.fin.date||'—'}</td>
         <td style="padding:5px 6px;font-size:11px;color:var(--text)">${e.fin.day||'—'}</td>
         <td style="padding:5px 6px;font-size:11px;color:var(--text)">${e.fin.time||'—'}</td>
         <td style="padding:5px 6px"><span style="background:rgba(108,99,255,.12);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700">${e.fin.room||'—'}</span></td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     document.getElementById('exams-list').innerHTML=rows
       ?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
           <table style="width:100%;border-collapse:collapse">
@@ -1076,10 +1092,10 @@ function examForm(e){
 }
 function autoDay(dateId,dayId){
   const val=document.getElementById(dateId).value;
-  if(!val)return;
+  const dayEl=document.getElementById(dayId);
+  if(!val){if(dayEl)dayEl.value='';return;}
   const days=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
   const d=new Date(val);
-  const dayEl=document.getElementById(dayId);
   if(dayEl)dayEl.value=days[d.getDay()];
 }
 function exSg(v){
@@ -2705,7 +2721,7 @@ function filterDocs(val){document.querySelectorAll('#docs-grid>div').forEach(el=
 window.addEventListener('load', function(){
   document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));
   (document.getElementById('hw-modal')||{}).classList.remove('open');
-  (document.getElementById('gen-overlay')||{}).classList.remove('open');
+  const genOv=document.getElementById('gen-overlay');if(genOv)genOv.classList.remove('open');
 });
 // Close overlay on back button (mobile)
 window.addEventListener('popstate', function(){
