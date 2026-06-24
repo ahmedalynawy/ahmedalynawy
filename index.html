@@ -228,11 +228,14 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 
 <!-- ══════════════════ HOME ══════════════════ -->
 <div id="home">
+
 <div id="home-header" style="width:100%;max-width:720px;margin-bottom:4px">
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;position:relative">
       <button onclick="editUniInfo()" style="position:absolute;top:9px;left:9px;background:none;border:none;color:var(--text2);font-size:14px;cursor:pointer;z-index:3">✏️</button>
       <div style="display:flex;align-items:center;gap:14px">
-        <div id="uni-photo-wrap" style="flex-shrink:0"><div style="width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px">🏛️</div></div>
+        <div id="uni-photo-wrap" style="flex-shrink:0"></div>
+        <script>
+        (function(){try{var u=JSON.parse(localStorage.getItem('tdb_uniInfo')||'{}');var w=document.currentScript.previousElementSibling;w.innerHTML=u.uniPhoto?'<img src="'+u.uniPhoto+'" style="width:56px;height:56px;border-radius:12px;object-fit:cover;display:block">':'<div style=\"width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px\">🏛️</div>';}catch(e){}})()</script>
         <div style="flex:1;text-align:center;min-width:0">
           <div style="font-size:14px;font-weight:800;color:var(--accent)">بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ</div>
           <div id="hdr-country" style="font-size:13px;color:var(--text);font-weight:700;margin-top:3px">الدولة / ليبيا</div>
@@ -241,7 +244,9 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
           <div id="hdr-uniname" style="font-size:13px;font-weight:700;color:var(--text)">جامعة المرقب / كلية تقنية المعلومات</div>
           <div id="hdr-name" style="font-size:14px;font-weight:900;color:var(--accent);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">احمد ابو صلاح محمد العيناوي</div>
         </div>
-        <div id="col-photo-wrap" style="flex-shrink:0"><div style="width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px">🎓</div></div>
+        <div id="col-photo-wrap" style="flex-shrink:0"></div>
+        <script>
+        (function(){try{var u=JSON.parse(localStorage.getItem('tdb_uniInfo')||'{}');var w=document.currentScript.previousElementSibling;w.innerHTML=u.collegePhoto?'<img src="'+u.collegePhoto+'" style="width:56px;height:56px;border-radius:12px;object-fit:cover;display:block">':'<div style=\"width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px\">🎓</div>';}catch(e){}})()</script>
       </div>
     </div>
   </div>
@@ -254,17 +259,17 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
       <div class="home-card-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe)">📅</div>
       <div class="home-card-info"><h3>الفصل الحالي</h3><p>الخطة والجدول والامتحانات</p></div>
     </button>
+    <button type="button" class="home-card" onclick="openPage('semesters')">
+      <div class="home-card-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="6" y="4" width="12" height="16" rx="0.5" fill="rgba(255,255,255,0.15)"/><circle cx="15" cy="12" r="1.3" fill="white"/><line x1="2" y1="22" x2="22" y2="22" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="4" x2="12" y2="20" stroke="white" stroke-width="1" stroke-dasharray="2 2" opacity="0.5"/></svg></div>
+      <div class="home-card-info"><h3>الفصول الدراسية</h3><p id="hc-sem-count"><script>try{document.write((JSON.parse(localStorage.getItem('tdb_semCount')||'10'))+' فصول دراسية')}catch(e){document.write('10 فصول دراسية')}</script></p></div>
+    </button>
     <button type="button" class="home-card" onclick="openPage('depts')">
       <div class="home-card-icon" style="background:linear-gradient(135deg,#43e97b,#38f9d7)">📚</div>
-      <div class="home-card-info"><h3>الأقسام الدراسية</h3><p>قسم العام وقسم الشبكات</p></div>
+      <div class="home-card-info"><h3>الأقسام الدراسية</h3><p id="hc-dept-names"><script>try{var _dn=JSON.parse(localStorage.getItem('tdb_deptNames')||'{"gen":"قسم العام","net":"قسم الشبكات"}');document.write(Object.values(_dn).map(function(v){return v.replace('قسم ','')}).join(' · '))}catch(e){document.write('العام · الشبكات')}</script></p></div>
     </button>
     <button type="button" class="home-card" onclick="openPage('completed')">
       <div class="home-card-icon" style="background:linear-gradient(135deg,#f9ca24,#f0932b)">✅</div>
       <div class="home-card-info"><h3>المقررات المكتملة</h3><p>المواد التي تم اجتيازها</p></div>
-    </button>
-    <button type="button" class="home-card" onclick="openPage('semesters')">
-      <div class="home-card-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="6" y="4" width="12" height="16" rx="0.5" fill="rgba(255,255,255,0.15)"/><circle cx="15" cy="12" r="1.3" fill="white"/><line x1="2" y1="22" x2="22" y2="22" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="4" x2="12" y2="20" stroke="white" stroke-width="1" stroke-dasharray="2 2" opacity="0.5"/></svg></div>
-      <div class="home-card-info"><h3>الفصول الدراسية</h3><p>10 فصول بالدرجات والمعدلات</p></div>
     </button>
     <button type="button" class="home-card" onclick="openPage('academic-record')">
       <div class="home-card-icon" style="background:linear-gradient(135deg,#f5576c,#f093fb)">📊</div>
@@ -600,12 +605,31 @@ const PAGE_TITLES={
   'depts':'📚 الأقسام الدراسية','completed':'✅ المقررات المكتملة',
   'semesters':'🗂️ الفصول الدراسية','academic-record':'📊 السجل الدراسي',
   'timetable':'📋 الجدول الدراسي','exams':'📝 جدول الامتحانات',
-  'plan':'🗓️ الخطة الدراسية','dept-gen':'📗 قسم العام','dept-net':'🌐 قسم الشبكات','documents':'📁 المستندات','settings':'⚙️ الإعدادات'
+  'plan':'🗓️ الخطة الدراسية','dept-gen':'📗 قسم العام','dept-net':'🌐 قسم الشبكات','documents':'📁 المستندات','settings':'⚙️ الإعدادات','depts':'📚 الأقسام'
 };
 
 function renderPage(page){
-  document.getElementById('app-title').textContent=PAGE_TITLES[page]||'—';
+  // عنوان ديناميكي للأقسام
+  if(page.startsWith('dept-')){
+    const key=page.replace('dept-','');
+    if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
+    if(!DB.deptIcons)DB.deptIcons={};
+    const dName=DB.deptNames[key]||key;
+    const dIcon=DB.deptIcons[key]||'📗';
+    document.getElementById('app-title').textContent=dIcon+' '+dName;
+  } else {
+    document.getElementById('app-title').textContent=PAGE_TITLES[page]||'—';
+  }
   document.getElementById('topbar-actions').innerHTML='';
+  // تحديث تلقائي كل 5 ثوانٍ
+  clearInterval(window._acadTimer);
+  window._acadTimer=setInterval(()=>{
+    if(document.getElementById('page-content')&&document.getElementById('page-content').contains(document.querySelector('.stats-row'))){
+      renderAcademicRecord(document.getElementById('page-content'));
+    } else {
+      clearInterval(window._acadTimer);
+    }
+  },5000);
   const c=document.getElementById('page-content');
   c.innerHTML='';
   if(page==='profile')renderProfile(c);
@@ -617,8 +641,13 @@ function renderPage(page){
   else if(page==='timetable')renderTimetable(c);
   else if(page==='exams')renderExams(c);
   else if(page==='plan')renderPlan(c);
-  else if(page==='dept-gen')renderDeptTable(c,'gen','قسم العام');
-  else if(page==='dept-net')renderDeptTable(c,'net','قسم الشبكات');
+  else if(page.startsWith('dept-')){
+    const key=page.replace('dept-','');
+    if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
+    // تحميل بيانات القسم من localStorage لو ما كانت محمّلة
+    if(!DB[key])DB[key]=ld(key)||[];
+    renderDeptTable(c,key,DB.deptNames[key]||key);
+  }
   else if(page==='documents')renderDocuments(c);
   else if(page==='settings')renderSettings(c);
 }
@@ -685,34 +714,141 @@ function renderCurrentSem(c){
 
 // ══ DEPTS ══
 function renderDepts(c){
-  c.innerHTML=`
-    <div style="display:flex;flex-direction:column;gap:14px;padding:20px 4px">
-      <div onclick="openPage('dept-gen')" style="background:var(--surface);border:2px solid var(--border);border-radius:16px;padding:18px 22px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:all .2s;width:100%" onmouseover="this.style.borderColor='var(--green)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
-        <div style="font-size:44px;flex-shrink:0">📗</div>
-        <div style="flex:1">
-          <div style="font-size:19px;font-weight:900;color:var(--text)">قسم العام</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:3px">${DB.gen.length} مقرر</div>
-        </div>
-        <div style="font-size:22px;color:var(--text2)">‹</div>
+  if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
+  document.getElementById('topbar-actions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="addNewDept()">＋ إضافة</button>`;
+  const deptKeys=Object.keys(DB.deptNames);
+  if(!DB.deptIcons)DB.deptIcons={};
+  const iconsDefault=['📗','🌐','📘','📙','📕','📒'];
+  c.innerHTML=`<div style="display:flex;flex-direction:column;gap:14px;padding:20px 4px">
+    ${deptKeys.map((k,i)=>`
+    <div style="background:var(--surface);border:2px solid var(--border);border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:16px;transition:all .2s;width:100%">
+      <div onclick="openPage('dept-${k}')" style="font-size:44px;flex-shrink:0;cursor:pointer">${DB.deptIcons[k]||iconsDefault[i%iconsDefault.length]}</div>
+      <div style="flex:1;cursor:pointer" onclick="openPage('dept-${k}')">
+        <div style="font-size:19px;font-weight:900;color:var(--text)">${DB.deptNames[k]}</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:3px">${(DB[k]||[]).length} مقرر</div>
       </div>
-      <div onclick="openPage('dept-net')" style="background:var(--surface);border:2px solid var(--border);border-radius:16px;padding:18px 22px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:all .2s;width:100%" onmouseover="this.style.borderColor='var(--blue)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
-        <div style="font-size:44px;flex-shrink:0">🌐</div>
-        <div style="flex:1">
-          <div style="font-size:19px;font-weight:900;color:var(--text)">قسم الشبكات</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:3px">${DB.net.length} مقرر</div>
-        </div>
-        <div style="font-size:22px;color:var(--text2)">‹</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button onclick="renameDept('${k}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:16px;cursor:pointer;padding:7px 11px;min-width:38px">✏️</button>
+        ${k!=='gen'&&k!=='net'?`<button onclick="if(confirm('حذف القسم؟'))deleteDept('${k}')" style="background:rgba(245,87,108,.12);border:1px solid var(--red);border-radius:8px;color:var(--red);font-size:16px;cursor:pointer;padding:7px 11px;min-width:38px">🗑️</button>`:''}
+        <div onclick="openPage('dept-${k}')" style="font-size:22px;color:var(--text2);cursor:pointer">‹</div>
       </div>
-    </div>`;
+    </div>`).join('')}
+  </div>`;
+}
+
+function getDeptEmojiHtml(selectedIcon){
+  const groups={
+    'دراسي':['📗','📘','📙','📕','📒','📓','📔','📚','📝','✏️','🖊️','📐','📏','📊','📈','📉','🗂️','🗃️'],
+    'تقني':['💻','🖥️','📱','⌨️','🖱️','💾','💿','📡','🔌','🔋','⚡','🌐','📲','🛜'],
+    'علوم':['🔬','🔭','🧪','🧬','🧮','⚗️','🔩','⚙️','🔧','🛠️','🏗️','🧲'],
+    'طب':['⚕️','💊','🩺','🩻','🏥','🧬','💉','🩹'],
+    'هندسة':['⚙️','🔧','🛠️','🏗️','🔩','📐','📏','🔨','⛏️','🏚️'],
+    'فنون':['🎨','🎭','🎪','🎬','🎤','🎵','🎶','🎸','🎹','🖼️'],
+    'أعمال':['💼','📊','📈','💰','🏦','🤝','📋','🗃️','🎯','🏆'],
+    'أخرى':['🎓','⭐','🌟','💎','🔑','🏛️','🏢','🏫','🚀','✈️','🌍','🌱','🦁','🦅']
+  };
+  let html='<div style="max-height:180px;overflow-y:auto;padding:4px">';
+  Object.entries(groups).forEach(([g,emojis])=>{
+    html+=`<div style="font-size:11px;color:var(--text2);margin:6px 0 3px;font-weight:700">${g}</div>`;
+    html+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
+    emojis.forEach(ic=>{
+      const sel=ic===selectedIcon;
+      html+=`<button type="button" onclick="document.getElementById('dn-icon').value='${ic}';document.querySelectorAll('.emo-btn').forEach(b=>{b.style.borderColor='var(--border)';b.style.background='none'});this.style.borderColor='var(--accent)';this.style.background='var(--surface2)'" class="emo-btn" style="border:2px solid ${sel?'var(--accent)':'var(--border)'};background:${sel?'var(--surface2)':'none'};border-radius:6px;padding:4px 7px;font-size:20px;cursor:pointer">${ic}</button>`;
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  return html;
+}
+
+function renameDept(key){
+  if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
+  if(!DB.deptIcons)DB.deptIcons={};
+  const curName=DB.deptNames[key]||'';
+  const curIcon=DB.deptIcons[key]||'📗';
+  openModal('✏️ تعديل القسم',`
+    <div class="fg"><label class="fl">اسم القسم</label><input class="fi" id="dn-name" value="${curName}"></div>
+    <div class="fg" style="margin-top:8px"><label class="fl">الأيقونة المختارة</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="dn-icon-preview" style="font-size:32px">${curIcon}</span>
+        <input class="fi" id="dn-icon" value="${curIcon}" style="width:80px;font-size:18px;text-align:center" oninput="document.getElementById('dn-icon-preview').textContent=this.value">
+      </div>
+    </div>
+    ${getDeptEmojiHtml(curIcon)}`,
+  ()=>{
+    const name=gv('dn-name');if(!name){alert('أدخل اسم القسم');return;}
+    DB.deptNames[key]=name;
+    const newIcon=document.getElementById('dn-icon').value||curIcon;
+    DB.deptIcons[key]=newIcon;
+    sv('deptNames',DB.deptNames);
+    sv('deptIcons',DB.deptIcons);
+    closeModal();
+    // تحديث العنوان تلقائياً لو كنا داخل القسم حالياً
+    const curPage=pageStack[pageStack.length-1];
+    if(curPage==='dept-'+key){
+      const appTitle=document.getElementById('app-title');
+      if(appTitle)appTitle.textContent=newIcon+' '+name;
+    }
+    renderPage('depts');
+    updateHomeCards();
+  });
+}
+
+function addNewDept(){
+  openModal('➕ إضافة قسم جديد',`
+    <div class="fg"><label class="fl">اسم القسم</label><input class="fi" id="dn-name" placeholder=""></div>
+    <div class="fg" style="margin-top:8px"><label class="fl">الأيقونة</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="dn-icon-preview" style="font-size:32px">📗</span>
+        <input class="fi" id="dn-icon" value="📗" style="width:80px;font-size:18px;text-align:center" oninput="document.getElementById('dn-icon-preview').textContent=this.value">
+      </div>
+    </div>
+    ${getDeptEmojiHtml('')}`,
+  ()=>{
+    const name=gv('dn-name');if(!name){alert('أدخل اسم القسم');return;}
+    const key='dept_'+Date.now();
+    if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
+    if(!DB.deptIcons)DB.deptIcons={};
+    DB.deptNames[key]=name;
+    DB.deptIcons[key]=document.getElementById('dn-icon').value||'📗';
+    DB[key]=[];
+    sv('deptNames',DB.deptNames);
+    sv('deptIcons',DB.deptIcons);
+    sv(key,DB[key]);
+    closeModal();
+    renderPage('depts');
+    updateHomeCards();
+  });
+}
+
+function deleteDept(key){
+  if(!confirm('حذف القسم وكل مقرراته؟'))return;
+  delete DB.deptNames[key];
+  delete DB[key];
+  sv('deptNames',DB.deptNames);
+  localStorage.removeItem('tdb_'+key);
+  renderPage('depts');
 }
 
 // ══ DEPT TABLE ══
 function renderDeptTable(c,key,title){
   document.getElementById('topbar-actions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="addDeptRow('${key}')">＋ إضافة</button>`;
   const renderRows=()=>{
-    document.getElementById('dept-tbody').innerHTML=DB[key].map((r,i)=>`
+    document.getElementById('dept-tbody').innerHTML=DB[key].map((r,i)=>{
+      // تحقق إذا المقرر مكتمل — بالاسم أو الرمز
+      const isCompleted=DB.completed.some(c=>
+        (c.name&&r.name&&c.name.trim()===r.name.trim())||
+        (c.code&&r.code&&c.code.trim()===r.code.trim())
+      );
+      const completedInfo=isCompleted?DB.completed.find(c=>
+        (c.name&&r.name&&c.name.trim()===r.name.trim())||
+        (c.code&&r.code&&c.code.trim()===r.code.trim())
+      ):null;
+      return`
       <tr style="border-bottom:1px solid var(--border);transition:background .1s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-        <td style="padding:10px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:12px">${i+1}</td>
+        <td style="padding:10px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:12px">
+          ${isCompleted?'<span style="color:#4caf50;font-size:13px">✅</span> ':''}<span>${i+1}</span>
+        </td>
         <td style="padding:10px 12px"><b>${r.name}</b></td>
         <td style="padding:10px 12px;color:var(--text2);font-size:12px">${r.code||'—'}</td>
         <td style="padding:10px 12px;text-align:center">${r.units}</td>
@@ -722,7 +858,8 @@ function renderDeptTable(c,key,title){
           <button class="btn btn-ghost btn-sm" onclick="editDeptRow('${key}',${i})">✏️</button>
           <button class="btn btn-sm" style="background:rgba(245,87,108,.15);color:var(--red);border:1px solid var(--border)" onclick="delDeptRow('${key}',${i})">🗑️</button>
         </div></td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     // Show actions on hover
     document.querySelectorAll('#dept-tbody tr').forEach(tr=>{
       tr.addEventListener('mouseover',()=>tr.querySelector('.row-acts').style.opacity='1');
@@ -732,7 +869,7 @@ function renderDeptTable(c,key,title){
   c.innerHTML=`
     <div class="toolbar-row">
       <input class="search-inp" placeholder="🔍 بحث..." oninput="filterDeptTable(this.value)">
-      <span style="font-size:12px;color:var(--text2);margin-right:auto">${DB[key].length} مقرر</span>
+      <span id="dept-course-count" style="font-size:12px;color:var(--text2);margin-right:auto">${DB[key].length} مقرر</span>
     </div>
     <div style="overflow:auto;flex:1">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -769,16 +906,20 @@ function editDeptRow(key,i){
     sv(key,DB[key]);closeModal();window._deptRender&&window._deptRender();
   });
 }
-function delDeptRow(key,i){if(!confirm('حذف؟'))return;DB[key].splice(i,1);sv(key,DB[key]);window._deptRender&&window._deptRender();}
+function delDeptRow(key,i){if(!confirm('حذف؟'))return;DB[key].splice(i,1);sv(key,DB[key]);
+  window._deptRender&&window._deptRender();
+  const c=document.getElementById('dept-course-count');if(c)c.textContent=DB[key].length+' مقرر';
+}
 function deptForm(r){return`<div class="fr"><div class="fg"><label class="fl">اسم المقرر</label><input class="fi" id="dr-name" value="${r.name||''}"></div><div class="fg"><label class="fl">الرمز</label><input class="fi" id="dr-code" value="${r.code||''}"></div></div><div class="fr"><div class="fg"><label class="fl">الوحدات</label><input class="fi" id="dr-units" type="number" value="${r.units||3}"></div><div class="fg"><label class="fl">المقرر السابق</label><input class="fi" id="dr-pre" value="${r.pre||''}"></div></div><div class="fg"><label class="fl">المقرر القادم</label><input class="fi" id="dr-next" value="${r.next||''}"></div>`;}
 
 // ══ COMPLETED ══
 function renderCompleted(c){
   document.getElementById('topbar-actions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="addCompleted()">＋ إضافة</button>`;
   const gradeBC=g=>g>=85?'bg':g>=75?'bb':g>=65?'by':g>=50?'bp':'br';
-  const gradeLabel=g=>g>=85?'ممتاز':g>=75?'جيد جداً':g>=65?'جيد':g>=50?'مقبول':'راسب';
+  const gradeLabel=g=>!g?'—':g>=85?'ممتاز':g>=75?'جيد جداً':g>=65?'جيد':g>=50?'مقبول':'راسب';
   const renderRows=()=>{
-    const sorted=[...DB.completed].sort((a,b)=>{const ya=parseInt(((a.sem||'').match(/\d{4}/)||['0'])[0]||0),yb=parseInt(((b.sem||'').match(/\d{4}/)||['0'])[0]||0);if(ya!==yb)return ya-yb;const sa=a.sem||'',sb=b.sem||'';return sa.includes('خريف')&&sb.includes('ربيع')?1:sa.includes('ربيع')&&sb.includes('خريف')?-1:0;});
+    const semOrder={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
+    const sorted=[...DB.completed].sort((a,b)=>(semOrder[a.semNum]||99)-(semOrder[b.semNum]||99));
     document.getElementById('comp-tbody').innerHTML=sorted.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);transition:background .1s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
       <td style="padding:10px 12px;text-align:center;color:var(--text2);font-size:12px;font-weight:700">${i+1}</td>
       <td style="padding:10px 12px"><b>${r.name}</b></td>
@@ -820,7 +961,7 @@ function renderCompleted(c){
         <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700">الرمز</th>
         <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">الدرجة</th>
         <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">الوحدات</th>
-        <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700">الفصل</th>
+        <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700">وقت الفصل</th>
         <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">رقم الفصل</th>
         <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">القسم</th>
         <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">التقدير</th>
@@ -840,8 +981,13 @@ function filterCompTable(val){
   });
 }
 function completedForm(r){
-  const semNums=['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر'];
-  const allCourses=[...(DB.gen||[]),...(DB.net||[])];
+  const count=DB.semCount||10;
+  const ALL_SEM_NAMES=['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر','الحادي عشر','الثاني عشر','الثالث عشر','الرابع عشر','الخامس عشر','السادس عشر','السابع عشر','الثامن عشر','التاسع عشر','العشرون'];
+  const semNums=ALL_SEM_NAMES.slice(0,count);
+  const depts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  // كل المقررات من كل الأقسام
+  const allCourses=Object.keys(depts).flatMap(k=>DB[k]||[]);
+  const deptOpts=Object.entries(depts).map(([k,v])=>{const s=v.replace('قسم ','').replace('قسم','').trim();return`<option value="${s}" ${r.dept===s?'selected':''}>${s}</option>`;}).join('');
   return`<div class="fr">
     <div class="fg"><label class="fl">اسم المقرر</label>
       <div style="position:relative">
@@ -852,30 +998,75 @@ function completedForm(r){
     <div class="fg"><label class="fl">الرمز</label><input class="fi" id="cf-code" value="${r.code||''}"></div>
   </div>
   <div class="fr">
-    <div class="fg"><label class="fl">الدرجة</label><input class="fi" id="cf-grade" type="number" value="${r.grade||''}"></div>
+    <div class="fg"><label class="fl">الدرجة</label><input class="fi" id="cf-grade" type="number" value="${r.grade!==null&&r.grade!==undefined?r.grade:''}"></div>
     <div class="fg"><label class="fl">الوحدات</label><input class="fi" id="cf-units" type="number" value="${r.units||3}"></div>
   </div>
   <div class="fr">
-    <div class="fg"><label class="fl">وقت الفصل</label><input class="fi" id="cf-sem" placeholder="مثال: خريف 2023" value="${r.sem||''}"></div>
     <div class="fg"><label class="fl">رقم الفصل</label>
-      <select class="fs" id="cf-semnum">
+      <select class="fs" id="cf-semnum" onchange="autoSemTime(this.value)">
         <option value="">اختر...</option>
         ${semNums.map(s=>'<option value="'+s+'" '+(r.semNum===s?'selected':'')+'>'+s+'</option>').join('')}
       </select>
     </div>
+    <div class="fg"><label class="fl">وقت الفصل</label><input class="fi" id="cf-sem" placeholder="يملأ تلقائياً" value="${r.sem||''}"></div>
   </div>
   <div class="fg"><label class="fl">القسم</label>
-    <select class="fs" id="cf-dept">
-      <option value="عام" ${!r.dept||r.dept==='عام'?'selected':''}>عام</option>
-      <option value="شبكات" ${r.dept==='شبكات'?'selected':''}>شبكات</option>
-    </select>
+    <select class="fs" id="cf-dept">${deptOpts}</select>
   </div>
   <div class="fg"><label class="fl">ملاحظة</label><textarea class="fi" id="cf-note" rows="2" style="resize:vertical;direction:rtl" placeholder="ملاحظة اختيارية...">${r.note||''}</textarea></div>`;
 }
+
+function autoSemTime(semNum){
+  const semInp=document.getElementById('cf-sem');
+  if(!semInp)return;
+  // ابحث عن آخر مقرر في نفس الفصل
+  const last=DB.completed.filter(c=>c.semNum===semNum&&c.sem).pop();
+  if(last)semInp.value=last.sem;
+  else semInp.value='';
+}
+function syncCompletedToSemester(item, oldSemNum){
+  const ALL_NAMES=['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر','الحادي عشر','الثاني عشر','الثالث عشر','الرابع عشر','الخامس عشر','السادس عشر','السابع عشر','الثامن عشر','التاسع عشر','العشرون'];
+  const semOrder={}; ALL_NAMES.forEach((n,i)=>semOrder[n]=i+1);
+  // احذف من الفصل القديم لو تغير
+  if(oldSemNum&&oldSemNum!==item.semNum){
+    const oldIdx=semOrder[oldSemNum];
+    if(oldIdx&&DB.semesters[oldIdx]){
+      DB.semesters[oldIdx].rows=DB.semesters[oldIdx].rows.filter(r=>r.name!==item.name&&r.code!==item.code);
+      sv('semesters',DB.semesters);
+    }
+  }
+  // أضف للفصل الجديد
+  const semIdx=semOrder[item.semNum];
+  if(!semIdx)return;
+  if(!DB.semesters[semIdx])DB.semesters[semIdx]={rows:[]};
+  const exists=DB.semesters[semIdx].rows.findIndex(r=>r.name===item.name||(item.code&&r.code===item.code));
+  if(exists>=0){
+    // حافظ على mid و fin الموجودة وفقط حدّث الاسم والكود والوحدات والقسم
+    const existing=DB.semesters[semIdx].rows[exists];
+    DB.semesters[semIdx].rows[exists]={
+      ...existing,
+      name:item.name,
+      code:item.code||existing.code||'',
+      units:item.units||existing.units||3,
+      dept:item.dept||existing.dept||'عام'
+    };
+    // فقط حدّث total لو المقرر محدد الدرجة
+    if(item.grade!==null&&item.grade!==undefined){
+      DB.semesters[semIdx].rows[exists].total=item.grade;
+    }
+  } else {
+    const row={id:item.id||Date.now(),name:item.name,code:item.code||'',units:item.units||3,total:item.grade||0,dept:item.dept||'عام'};
+    DB.semesters[semIdx].rows.push(row);
+  }
+  sv('semesters',DB.semesters);
+}
+
 function cfSg(v){
   var box=document.getElementById('cf-sg');if(!box)return;
   if(!v){box.style.display='none';return;}
-  var all=[].concat(DB.gen||[]).concat(DB.net||[]);
+  var deptsCf=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  var seenCf={};var all=[];
+  Object.keys(deptsCf).forEach(function(k){if(!DB[k]){var lv=localStorage.getItem('tdb_'+k);DB[k]=lv?JSON.parse(lv):[];}(DB[k]||[]).forEach(function(c){if(c.name&&!seenCf[c.name]){seenCf[c.name]=1;all.push(c);}});});
   var m=all.filter(function(c){return c.name&&c.name.indexOf(v)>=0;}).slice(0,5);
   if(!m.length){box.style.display='none';return;}
   box.innerHTML=m.map(function(c,i){
@@ -889,33 +1080,71 @@ function cfPk(e,name,code,units){
   var box=document.getElementById('cf-sg');if(box)box.style.display='none';
   var ce=document.getElementById('cf-code'),ue=document.getElementById('cf-units'),de=document.getElementById('cf-dept');
   if(ce)ce.value=code||'';if(ue)ue.value=units||3;
-  var isNet=(DB.net||[]).some(function(r){return r.name===name;});
-  if(de)de.value=isNet?'شبكات':'عام';
+  var depts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  var foundDept='';
+  Object.entries(depts).some(function(e){
+    var k=e[0],v=e[1];
+    if((DB[k]||[]).some(function(r){return r.name===name;})){
+      foundDept=v.replace('قسم ','').replace('قسم','').trim();return true;
+    }
+  });
+  if(de&&foundDept)de.value=foundDept;
 }
-function addCompleted(){openModal('➕ إضافة مقرر مكتمل',completedForm({}),()=>{DB.completed.push({id:Date.now(),name:gv('cf-name'),code:gv('cf-code'),grade:parseInt(gv('cf-grade'))||0,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''});sv('completed',DB.completed);closeModal();window._compRender&&window._compRender();});}
+function addCompleted(){openModal('➕ إضافة مقرر مكتمل',completedForm({}),()=>{
+  const gradeVal=gv('cf-grade').trim();
+  const grade=gradeVal===''?null:parseInt(gradeVal);
+  if(grade!==null&&grade<50){alert('❌ لا يمكن إضافة مقرر بدرجة أقل من 50');return;}
+  const newName=gv('cf-name').trim();
+  const duplicate=DB.completed.some(x=>x.name.trim()===newName);
+  if(duplicate){alert('❌ هذا المقرر موجود مسبقاً');return;}
+  const newItem={id:Date.now(),name:newName,code:gv('cf-code'),grade:grade,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''};
+  DB.completed.push(newItem);
+  sv('completed',DB.completed);
+  // إضافة للفصول تلقائياً
+  syncCompletedToSemester(newItem,null);
+  closeModal();window._compRender&&window._compRender();
+});}
 function editCompleted(id){const i=DB.completed.findIndex(x=>x.id===id);if(i<0)return;const r=DB.completed[i];openModal('✏️ تعديل مقرر مكتمل',completedForm(r),()=>{
-  const newGrade=parseInt(gv('cf-grade'))||0;
-  const updated={...r,name:gv('cf-name'),code:gv('cf-code'),grade:newGrade,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''};
-  // تحديث في الفصول إذا وُجد
-  const semNums={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
-  const semIdx=semNums[updated.semNum];
-  if(semIdx&&DB.semesters[semIdx]){
-    const si=DB.semesters[semIdx].rows.findIndex(x=>x.name===r.name);
-    if(si>=0){
-      DB.semesters[semIdx].rows[si]={...DB.semesters[semIdx].rows[si],name:updated.name,code:updated.code,total:newGrade,units:updated.units,dept:updated.dept};
-      // إعادة حساب النصفي/نهائي تقريبياً إذا كان مجموعهما يساوي القديم
+  const gradeVal=gv('cf-grade').trim();
+  const newGrade=gradeVal===''?null:parseInt(gradeVal);
+  if(newGrade!==null&&newGrade<50){alert('❌ لا يمكن حفظ مقرر بدرجة أقل من 50');return;}
+  const oldSemNum=r.semNum;
+  const oldName=r.name;
+  const newName=gv('cf-name');
+  // تحقق من عدم التكرار
+  const duplicate=DB.completed.some((x,xi)=>xi!==i&&x.name.trim()===newName.trim());
+  if(duplicate){alert('❌ هذا المقرر موجود مسبقاً');return;}
+  const updated={...r,name:newName,code:gv('cf-code'),grade:newGrade,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''};
+  // تحديث الاسم في الفصول إذا تغير
+  const semOrder={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
+  const oldIdx=semOrder[oldSemNum];
+  if(oldIdx&&DB.semesters[oldIdx]){
+    const ri=DB.semesters[oldIdx].rows.findIndex(x=>x.name===oldName);
+    if(ri>=0)DB.semesters[oldIdx].rows[ri].name=newName;
+    sv('semesters',DB.semesters);
+  }
+  DB.completed[i]=updated;
+  sv('completed',DB.completed);
+  syncCompletedToSemester(updated,oldSemNum);
+  closeModal();window._compRender&&window._compRender();
+});}
+function delCompleted(id){
+  if(!confirm('حذف؟'))return;
+  const i=DB.completed.findIndex(x=>x.id===id);
+  if(i>=0){
+    const item=DB.completed[i];
+    // احذف من الفصول تلقائياً
+    const semOrder={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
+    const semIdx=semOrder[item.semNum];
+    if(semIdx&&DB.semesters[semIdx]){
+      DB.semesters[semIdx].rows=DB.semesters[semIdx].rows.filter(r=>r.name!==item.name&&(!item.code||r.code!==item.code));
       sv('semesters',DB.semesters);
     }
-  }
-  if(newGrade<50){
-    // راسب: احذف من المكتملة
     DB.completed.splice(i,1);
-  } else {
-    DB.completed[i]=updated;
+    sv('completed',DB.completed);
+    window._compRender&&window._compRender();
   }
-  sv('completed',DB.completed);closeModal();window._compRender&&window._compRender();
-});}
-function delCompleted(id){if(!confirm('حذف؟'))return;const i=DB.completed.findIndex(x=>x.id===id);if(i>=0){DB.completed.splice(i,1);sv('completed',DB.completed);window._compRender&&window._compRender();}}
+}
 
 // ══ TIMETABLE ══
 const DAYS=['السبت','الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة'];
@@ -949,13 +1178,11 @@ function slotForm(slot){return`<div class="fr"><div class="fg"><label class="fl"
 </div><div class="fg"><label class="fl">القاعة</label><input class="fi" id="sl-room" value="${slot&&slot.room||''}"></div></div>`;}
 function slSg(v){
   var box=document.getElementById('sl-sg');if(!box)return;
-  var all=[].concat(DB.gen||[]).concat(DB.net||[]);
-  var m=v?all.filter(function(c){return c.name&&c.name.indexOf(v)>=0;}).slice(0,5):all.slice(0,8);
+  var _dsl=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};var _ssl={};var all=[];
+  Object.keys(_dsl).forEach(function(k){if(!DB[k]){var lv=localStorage.getItem('tdb_'+k);DB[k]=lv?JSON.parse(lv):[];}(DB[k]||[]).forEach(function(c){if(c.name&&!_ssl[c.name]){_ssl[c.name]=1;all.push(c);}});});
+  var m=v?all.filter(function(c){return c.name&&c.name.indexOf(v)>=0;}).slice(0,8):all.slice(0,8);
   if(!m.length){box.style.display='none';return;}
-  box.innerHTML=m.map(function(c,i){
-    var nm=c.name.replace(/'/g,"\\'");
-    return '<div onmousedown="slPk(event,\''+nm+'\')" style="padding:10px 14px;cursor:pointer;font-size:13px;'+(i>0?'border-top:1px solid var(--border);':'')+'display:flex;justify-content:space-between" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'"><b>'+c.name+'</b><span style="font-size:11px;color:var(--text2)">'+c.code+'</span></div>';
-  }).join('');box.style.display='block';
+  box.innerHTML=m.map(function(c,i){var nm=c.name.replace(/'/g,"\'");return '<div onmousedown="slPk(event,\''+nm+'\')" style="padding:10px 14px;cursor:pointer;font-size:13px;'+(i>0?'border-top:1px solid var(--border);':'')+ 'display:flex;justify-content:space-between" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'"><b>'+c.name+'</b><span style="font-size:11px;color:var(--text2)">'+c.code+'</span></div>';}).join('');box.style.display='block';
 }
 function slPk(e,name){
   e.preventDefault();
@@ -1102,13 +1329,11 @@ function autoDay(dateId,dayId){
 }
 function exSg(v){
   var box=document.getElementById('ex-sg');if(!box)return;
-  var all=[].concat(DB.gen||[]).concat(DB.net||[]);
-  var m=v?all.filter(function(c){return c.name&&c.name.indexOf(v)>=0;}).slice(0,5):all.slice(0,8);
+  var _dex=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};var _sex={};var all=[];
+  Object.keys(_dex).forEach(function(k){if(!DB[k]){var lv=localStorage.getItem('tdb_'+k);DB[k]=lv?JSON.parse(lv):[];}(DB[k]||[]).forEach(function(c){if(c.name&&!_sex[c.name]){_sex[c.name]=1;all.push(c);}});});
+  var m=v?all.filter(function(c){return c.name&&c.name.indexOf(v)>=0;}).slice(0,8):all.slice(0,8);
   if(!m.length){box.style.display='none';return;}
-  box.innerHTML=m.map(function(c,i){
-    var nm=c.name.replace(/'/g,"\\'");
-    return '<div onmousedown="exPk(event,\''+nm+'\')" style="padding:10px 14px;cursor:pointer;font-size:13px;'+(i>0?'border-top:1px solid var(--border);':'')+'display:flex;justify-content:space-between" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'"><b>'+c.name+'</b><span style="font-size:11px;color:var(--text2)">'+c.code+'</span></div>';
-  }).join('');box.style.display='block';
+  box.innerHTML=m.map(function(c,i){var nm=c.name.replace(/'/g,"\'");return '<div onmousedown="exPk(event,\''+nm+'\')" style="padding:10px 14px;cursor:pointer;font-size:13px;'+(i>0?'border-top:1px solid var(--border);':'')+ 'display:flex;justify-content:space-between" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'"><b>'+c.name+'</b><span style="font-size:11px;color:var(--text2)">'+c.code+'</span></div>';}).join('');box.style.display='block';
 }
 function exPk(e,name){
   e.preventDefault();
@@ -1214,18 +1439,47 @@ function editPlan(i){const p=DB.plan[i];openModal('✏️ تعديل',planForm(p
 function delPlan(i){if(!confirm('حذف؟'))return;DB.plan.splice(i,1);sv('plan',DB.plan);window._planRender&&window._planRender();}
 
 // ══ SEMESTERS ══
-const SEM_NAMES={1:'الفصل الأول',2:'الفصل الثاني',3:'الفصل الثالث',4:'الفصل الرابع',5:'الفصل الخامس',6:'الفصل السادس',7:'الفصل السابع',8:'الفصل الثامن',9:'الفصل التاسع',10:'الفصل العاشر'};
+const SEM_NAMES_BASE={1:'الفصل الأول',2:'الفصل الثاني',3:'الفصل الثالث',4:'الفصل الرابع',5:'الفصل الخامس',6:'الفصل السادس',7:'الفصل السابع',8:'الفصل الثامن',9:'الفصل التاسع',10:'الفصل العاشر',11:'الفصل الحادي عشر',12:'الفصل الثاني عشر',13:'الفصل الثالث عشر',14:'الفصل الرابع عشر',15:'الفصل الخامس عشر',16:'الفصل السادس عشر',17:'الفصل السابع عشر',18:'الفصل الثامن عشر',19:'الفصل التاسع عشر',20:'الفصل العشرون'};
+const SEM_NAMES=SEM_NAMES_BASE;
+function getSemName(n){return SEM_NAMES_BASE[n]||('الفصل '+n);}
 let curSem=1;
 function renderSemesters(c){
   curSem=null;
   document.getElementById('app-title').innerHTML=`<span style="font-weight:900">الفصول الدراسية</span>`;
-  document.getElementById('topbar-actions').innerHTML='';
+  if(!DB.semCount)DB.semCount=10;
+  document.getElementById('topbar-actions').innerHTML=`
+    <button class="btn btn-primary btn-sm" onclick="addSemester()">＋ إضافة</button>`;
+  const count=DB.semCount||10;
   c.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px 0">
-    ${[1,2,3,4,5,6,7,8,9,10].map(n=>`
-      <div onclick="openSemDetail(${n})" style="background:rgba(108,99,255,0.08);border:2px solid rgba(108,99,255,0.4);border-radius:16px;padding:18px 12px;cursor:pointer;text-align:center;transition:all .15s" onmouseover="this.style.background='rgba(108,99,255,0.15)';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(108,99,255,0.08)';this.style.transform=''">
-        <div style="font-size:17px;font-weight:900;color:#ffffff">${SEM_NAMES[n]}</div>
+    ${Array.from({length:count},(_,i)=>i+1).map(n=>`
+      <div style="background:rgba(108,99,255,0.08);border:2px solid rgba(108,99,255,0.4);border-radius:16px;padding:14px 12px;text-align:center;transition:all .15s;position:relative">
+        <div onclick="openSemDetail(${n})" style="font-size:16px;font-weight:900;color:#ffffff;cursor:pointer;padding-bottom:6px">${getSemName(n)}</div>
+        <button onclick="if(confirm('حذف '+getSemName(${n})+'؟'))removeSemester(${n})" style="position:absolute;top:6px;left:6px;background:rgba(245,87,108,.2);border:1px solid var(--red);border-radius:6px;color:var(--red);width:28px;height:28px;font-size:14px;cursor:pointer" title="حذف الفصل">🗑️</button>
       </div>`).join('')}
   </div>`;
+}
+
+function addSemester(){
+  if(!DB.semCount)DB.semCount=10;
+  if(DB.semCount>=20){alert('الحد الأقصى 20 فصل');return;}
+  DB.semCount++;
+  sv('semCount',DB.semCount);
+  updateHomeCards();
+  renderPage('semesters');
+}
+
+function removeSemester(n){
+  if(!DB.semCount)DB.semCount=10;
+  const hasDat=DB.semesters[n]&&DB.semesters[n].rows&&DB.semesters[n].rows.length;
+  if(hasDat&&!confirm(`${SEM_NAMES[n]} فيه بيانات، هل تريد حذفه؟`))return;
+  // إزاحة الفصول للأسفل
+  for(let i=n;i<DB.semCount;i++){DB.semesters[i]=DB.semesters[i+1]||{rows:[]};}
+  delete DB.semesters[DB.semCount];
+  DB.semCount--;
+  sv('semCount',DB.semCount);
+  sv('semesters',DB.semesters);
+  updateHomeCards();
+  renderPage('semesters');
 }
 
 function calcSemAvg(n){
@@ -1397,7 +1651,7 @@ function renderSemRows(){
             </td>
             <td style="padding:10px 5px;text-align:center">
               <div style="font-size:15px;font-weight:900;color:${c}">${r.total||'—'}</div>
-              <div style="font-size:12px;font-weight:900;margin-top:2px;color:${pass?'var(--green)':'var(--red)'}">${pass?'ناجح':'راسب'}</div>
+              ${r.total?`<div style="font-size:12px;font-weight:900;margin-top:2px;color:${pass?'var(--green)':'var(--red)'}">${pass?'ناجح':'راسب'}</div>`:''}
             </td>
             <td style="padding:8px 5px;text-align:center">
               <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
@@ -1412,7 +1666,13 @@ function renderSemRows(){
   :'<div style="text-align:center;padding:40px;color:var(--text2)">📚 لا توجد مواد — اضغط إضافة مقرر</div>';
   calcSemStats();
 }
-function semRowForm(r){return`<div class="fr"><div class="fg"><label class="fl">اسم المقرر</label>
+function semRowForm(r){
+  const depts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  const deptOpts=Object.entries(depts).map(([k,v])=>{
+    const shortName=v.replace('قسم ','').replace('قسم','').trim();
+    return`<option value="${shortName}" ${(r&&r.dept===shortName)?'selected':''}>${shortName}</option>`;
+  }).join('');
+  return`<div class="fr"><div class="fg"><label class="fl">اسم المقرر</label>
   <div style="position:relative">
     <input class="fi" id="sr-name" value="${r&&r.name||''}" oninput="srSg(this.value)" autocomplete="off" placeholder="اكتب أو اختر من القائمة...">
     <div id="sr-sg" style="display:none;position:absolute;top:100%;right:0;left:0;background:var(--surface);border:1px solid var(--accent);border-radius:8px;z-index:200;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
@@ -1420,10 +1680,13 @@ function semRowForm(r){return`<div class="fr"><div class="fg"><label class="fl">
 </div><div class="fg"><label class="fl">رمز المقرر</label><input class="fi" id="sr-code" value="${r&&r.code||''}"></div></div>
 <div class="fr"><div class="fg"><label class="fl">نصفي</label><input class="fi" id="sr-mid" type="number" value="${r&&r.mid||''}" oninput="document.getElementById('sr-tot').value=(+this.value||0)+(+document.getElementById('sr-fin').value||0)"></div><div class="fg"><label class="fl">نهائي</label><input class="fi" id="sr-fin" type="number" value="${r&&r.fin||''}" oninput="document.getElementById('sr-tot').value=(+document.getElementById('sr-mid').value||0)+(+this.value||0)"></div></div>
 <div class="fr"><div class="fg"><label class="fl">المجموع (تلقائي)</label><input class="fi" id="sr-tot" type="number" value="${r&&r.total||''}" style="color:var(--green);font-weight:700"></div><div class="fg"><label class="fl">الوحدات</label><input class="fi" id="sr-units" type="number" value="${r&&r.units||3}"></div></div>
-<div class="fg"><label class="fl">القسم</label><select class="fs" id="sr-dept"><option value="عام" ${!r||r.dept==='عام'?'selected':''}>عام</option><option value="شبكات" ${r&&r.dept==='شبكات'?'selected':''}>شبكات</option></select></div>`;}
+<div class="fg"><label class="fl">القسم</label><select class="fs" id="sr-dept">${deptOpts}</select></div>`;
+}
 function srSg(v){
   var box=document.getElementById('sr-sg');if(!box)return;
-  var all=[].concat(DB.gen||[]).concat(DB.net||[]);
+  var depts4=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  var seen4={};var all=[];
+  Object.keys(depts4).forEach(function(k){if(!DB[k]){var v4=localStorage.getItem('tdb_'+k);DB[k]=v4?JSON.parse(v4):[];}(DB[k]||[]).forEach(function(c){if(c.name&&!seen4[c.name]){seen4[c.name]=1;all.push(c);}});});
   var m=v?all.filter(function(c){return c.name&&c.name.indexOf(v)>=0;}).slice(0,6):all.slice(0,8);
   if(!m.length){box.style.display='none';return;}
   box.innerHTML=m.map(function(c,i){
@@ -1436,10 +1699,25 @@ function srPk(e,name,code,units){
   var inp=document.getElementById('sr-name');if(inp)inp.value=name;
   var box=document.getElementById('sr-sg');if(box)box.style.display='none';
   var ce=document.getElementById('sr-code'),ue=document.getElementById('sr-units'),de=document.getElementById('sr-dept');
-  if(ce)ce.value=code||'';
-  if(ue)ue.value=units||3;
-  var isNet=(DB.net||[]).some(function(r){return r.name===name;});
-  if(de)de.value=isNet?'شبكات':'عام';
+  if(ce&&code)ce.value=code;
+  if(ue&&units)ue.value=units;
+  if(de){
+    var depts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+    Object.keys(depts).some(function(k){
+      if(!DB[k]){var lv=localStorage.getItem('tdb_'+k);DB[k]=lv?JSON.parse(lv):[];}
+      var found=(DB[k]||[]).some(function(r){return r.name===name;});
+      if(found){
+        var shortName=depts[k].replace('قسم ','').replace('قسم','').trim();
+        // Try to set value - check all options
+        for(var i=0;i<de.options.length;i++){
+          if(de.options[i].value===shortName||de.options[i].text===shortName){
+            de.selectedIndex=i;break;
+          }
+        }
+        return true;
+      }
+    });
+  }
 }function getSemRow(){return{name:gv('sr-name'),code:gv('sr-code'),mid:gv('sr-mid'),fin:gv('sr-fin'),total:gv('sr-tot'),units:gv('sr-units')||3,dept:gv('sr-dept')};}
 
 function autoSyncCompleted(r){
@@ -1458,8 +1736,14 @@ function autoSyncCompleted(r){
 }
 
 function addSemRow(){openModal('➕ إضافة مقرر',semRowForm(null),()=>{
+  if(!DB.semesters[curSem])DB.semesters[curSem]={rows:[]};
   if(!DB.semesters[curSem].rows)DB.semesters[curSem].rows=[];
   const r=getSemRow();
+  // منع التكرار في نفس الفصل
+  if(DB.semesters[curSem].rows.some(function(x){return x.name===r.name;})){alert('❌ هذا المقرر موجود في هذا الفصل مسبقاً');return;}
+  // منع إضافة مقرر مكتمل
+  const isComp=(DB.completed||[]).some(function(x){return x.name&&x.name.trim()===r.name.trim();});
+  if(isComp){alert('❌ هذا المقرر موجود في المقررات المكتملة ولا يمكن إضافته');return;}
   DB.semesters[curSem].rows.push(r);
   sv('semesters',DB.semesters);
   autoSyncCompleted(r);
@@ -1490,15 +1774,16 @@ function delSemRow(i){
 
 // ══ ACADEMIC RECORD (linked to DB) ══
 function renderAcademicRecord(c){
-  document.getElementById('topbar-actions').innerHTML='<button class="btn btn-primary btn-sm" onclick="editAcademic()">✏️ تعديل</button>';
+  document.getElementById('topbar-actions').innerHTML='';
   // حساب من الفصول
   var lastSem=0;
-  for(var i=1;i<=10;i++){
+  var maxSem=DB.semCount||10;
+  for(var i=1;i<=maxSem;i++){
     if((DB.semesters[i]&&DB.semesters[i].rows||[]).filter(function(r){return r.name&&r.name.trim();}).length>0) lastSem=i;
   }
   // معدل العام من آخر فصل مكتمل
   var courseMap={};
-  for(var gi=1;gi<=lastSem;gi++){
+  for(var gi=1;gi<=Math.max(lastSem,1);gi++){
     var gr=(DB.semesters[gi]&&DB.semesters[gi].rows)||[];
     gr.filter(function(r){return r.name&&r.name.trim();}).forEach(function(r){
       var g=parseFloat(r.total)||0,u=parseFloat(r.units)||0;
@@ -1518,40 +1803,65 @@ function renderAcademicRecord(c){
   // إحصاءات
   var passCount=Object.keys(courseMap).length;
   var failCount=0;
-  for(var fi=1;fi<=10;fi++){
+  var maxSem2=DB.semCount||10;
+  for(var fi=1;fi<=maxSem2;fi++){
     var fr=(DB.semesters[fi]&&DB.semesters[fi].rows)||[];
     fr.forEach(function(r){if(r.name&&r.name.trim()&&(parseFloat(r.total)||0)<50)failCount++;});
   }
   var m=DB.academicManual||{};
-  var totalSem=m.totalSem||8,totalUnits=m.totalUnits||138;
-  var totalGenCourses=m.totalGenCourses||24,totalNetCourses=m.totalNetCourses||18;
+  // حساب الوحدات الكلية تلقائياً دائماً من الأقسام
+  var deptNm2=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  Object.keys(deptNm2).forEach(function(k){if(!DB[k]){var lv=localStorage.getItem('tdb_'+k);DB[k]=lv?JSON.parse(lv):[];}});
+  var autoUnits=Object.keys(deptNm2).reduce(function(sum,k){return sum+(DB[k]||[]).reduce(function(s,r){return s+(parseFloat(r.units)||0);},0);},0);
+  var totalSem=DB.semCount||m.totalSem||8;
+  var totalUnits=autoUnits>0?autoUnits:(m.totalUnits||138);
   var comp=DB.completed||[];
-  var genU=comp.filter(function(r){return r.dept==='عام';}).length;
-  var netU=comp.filter(function(r){return r.dept==='شبكات';}).length;
+  var deptNm=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  var deptColors2=['var(--green)','var(--blue)','var(--accent)','#f9ca24','#ff6b6b','#4ecdc4'];
+  var deptTotals=m.deptTotals||{};
+  var deptProgressHtml=Object.entries(deptNm).map(function(e,i){
+    var k=e[0],v=e[1];
+    var shortName=v.replace('قسم ','').replace('قسم','').trim();
+    var done=comp.filter(function(r){return r.dept===shortName;}).length;
+    var deptCourses=(DB[k]||[]).length;
+    var total=deptTotals[k]||deptCourses||0;
+    var color=deptColors2[i%deptColors2.length];
+    var pct=total>0?Math.min(done/total*100,100).toFixed(0):done>0?100:0;
+    return '<div class="progress-item"><div class="progress-item-top"><span>'+v+'</span><span style="color:'+color+';font-weight:700">'+done+(total>0?' / '+total:'')+'</span></div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div>';
+  }).join('');
   c.innerHTML=
     '<div class="stats-row">'+
     '<div class="stat-box"><div class="stat-box-val" style="color:var(--accent)">'+genAvg+'</div><div class="stat-box-label">المعدل العام</div></div>'+
     '<div class="stat-box"><div class="stat-box-val" style="color:var(--green)">'+passCount+'</div><div class="stat-box-label">المقررات المكتملة</div></div>'+
     '<div class="stat-box"><div class="stat-box-val" style="color:var(--yellow)">'+gwu+'</div><div class="stat-box-label">الوحدات المكتملة</div></div>'+
-    '<div class="stat-box"><div class="stat-box-val" style="color:var(--accent2)">'+lastSem+'/'+totalSem+'</div><div class="stat-box-label">الفصول</div></div>'+
+    '<div class="stat-box"><div class="stat-box-val" style="color:var(--accent2)">'+(lastSem||0)+' / '+(totalSem||DB.semCount||8)+'</div><div class="stat-box-label">الفصول</div></div>'+
     '<div class="stat-box"><div class="stat-box-val" style="color:var(--red)">'+failCount+'</div><div class="stat-box-label">مرات الرسوب</div></div>'+
     '</div>'+
     '<div class="section-hdr">نسبة الإنجاز</div>'+
     '<div>'+
-    '<div class="progress-item"><div class="progress-item-top"><span>الوحدات</span><span style="color:var(--accent);font-weight:700">'+gwu+' / '+totalUnits+'</span></div><div class="progress-bar"><div class="progress-fill" style="width:'+Math.min(gwu/totalUnits*100,100).toFixed(0)+'%"></div></div></div>'+
-    '<div class="progress-item"><div class="progress-item-top"><span>مقررات العام</span><span style="color:var(--accent);font-weight:700">'+genU+' / '+totalGenCourses+'</span></div><div class="progress-bar"><div class="progress-fill" style="width:'+Math.min(genU/totalGenCourses*100,100).toFixed(0)+'%"></div></div></div>'+
-    '<div class="progress-item"><div class="progress-item-top"><span>مقررات الشبكات</span><span style="color:var(--accent2);font-weight:700">'+netU+' / '+totalNetCourses+'</span></div><div class="progress-bar"><div class="progress-fill" style="width:'+Math.min(netU/totalNetCourses*100,100).toFixed(0)+'%;background:linear-gradient(90deg,var(--accent2),var(--accent))"></div></div></div>'+
+    '<div class="progress-item"><div class="progress-item-top"><span>الوحدات</span><span style="color:var(--accent);font-weight:700">'+gwu+' / <span id="acad-total-units">'+totalUnits+'</span></span></div><div class="progress-bar"><div class="progress-fill" id="acad-units-bar" style="width:'+Math.min(gwu/totalUnits*100,100).toFixed(0)+'%"></div></div></div>'+
+    deptProgressHtml+
     '</div>';
 }
 
 function editAcademic(){
   const m=DB.academicManual||DEF.academicManual||{};
+  const deptNmE=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  const autoU=Object.keys(deptNmE).reduce((s,k)=>s+(DB[k]||[]).reduce((ss,r)=>ss+(parseFloat(r.units)||0),0),0);
   openModal('✏️ تعديل بيانات السجل',
-    `<div class="fr"><div class="fg"><label class="fl">عدد الفصول الكلي</label><input class="fi" id="am-tsem" type="number" value="${m.totalSem||8}"></div><div class="fg"><label class="fl">الفصول المنجزة</label><input class="fi" id="am-csem" type="number" value="${m.completedSem||5}"></div></div>
-    <div class="fr"><div class="fg"><label class="fl">مقررات قسم العام الكلية</label><input class="fi" id="am-tgen" type="number" value="${m.totalGenCourses||24}"></div><div class="fg"><label class="fl">مقررات الشبكات الكلية</label><input class="fi" id="am-tnet" type="number" value="${m.totalNetCourses||18}"></div></div>
-    <div class="fr"><div class="fg"><label class="fl">مجموع الوحدات الكلي</label><input class="fi" id="am-tu" type="number" value="${m.totalUnits||138}"></div><div class="fg"><label class="fl">مرات الرسوب</label><input class="fi" id="am-fails" type="number" value="${m.fails||1}"></div></div>
-    <div style="padding:10px;background:rgba(108,99,255,.1);border-radius:8px;font-size:12px;color:var(--text2);margin-top:4px">💡 المعدل والمقررات المنجزة والوحدات تحسب تلقائياً من المقررات المنجزة</div>`,
-    ()=>{DB.academicManual={totalSem:parseInt(gv('am-tsem')),completedSem:parseInt(gv('am-csem')),totalGenCourses:parseInt(gv('am-tgen')),totalNetCourses:parseInt(gv('am-tnet')),totalUnits:parseInt(gv('am-tu')),fails:parseInt(gv('am-fails'))};sv('academicManual',DB.academicManual);closeModal();renderPage('academic-record');}
+    `<div class="fr">
+      <div class="fg"><label class="fl">مجموع الوحدات الكلي</label>
+        <input class="fi" id="am-tu" type="number" value="${m.totalUnits||(autoU>0?autoU:138)}" placeholder="يحسب تلقائياً من الأقسام">
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">تلقائي من الأقسام: ${autoU} وحدة</div>
+      </div>
+      <div class="fg"><label class="fl">مرات الرسوب</label><input class="fi" id="am-fails" type="number" value="${m.fails||0}"></div>
+    </div>
+    <div style="padding:10px;background:rgba(108,99,255,.1);border-radius:8px;font-size:12px;color:var(--text2);margin-top:4px">💡 عدد الفصول يحسب تلقائياً من الفصول المضافة (${DB.semCount||10})</div>`,
+    ()=>{
+      const tu=parseInt(gv('am-tu'))||autoU||138;
+      DB.academicManual={...m,totalUnits:tu,fails:parseInt(gv('am-fails'))||0};
+      sv('academicManual',DB.academicManual);closeModal();renderPage('academic-record');
+    }
   );
 }
 
@@ -1587,32 +1897,13 @@ function filterList(id,val){document.getElementById(id).querySelectorAll('.cours
 
 // Lookup course info from dept tables
 function lookupCourse(name){
-  const all=[...( DB.gen||[]),...(DB.net||[])];
+  const dpts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  const all=Object.keys(dpts).flatMap(k=>DB[k]||[]);
   const found=all.find(r=>r.name&&r.name.trim()===name.trim());
   return found||null;
 }
 
 
-function srSg(v){
-  var box=document.getElementById('sr-sg');if(!box)return;
-  if(!v){box.style.display='none';return;}
-  var all=[].concat(DB.gen||[]).concat(DB.net||[]);
-  var m=all.filter(function(c){return c.name&&c.name.indexOf(v)>=0;}).slice(0,3);
-  if(!m.length){box.style.display='none';return;}
-  box.innerHTML=m.map(function(c,i){
-    var nm=c.name.replace(/'/g,"\'");
-    return '<div onmousedown="srPk(event,\''+nm+'\',\''+c.code+'\','+c.units+')" style="padding:10px 14px;cursor:pointer;font-size:13px;'+(i>0?'border-top:1px solid var(--border);':'')+'display:flex;justify-content:space-between" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'"><b>'+c.name+'</b><span style="font-size:11px;color:var(--text2)">'+c.code+' · '+c.units+'</span></div>';
-  }).join('');box.style.display='block';
-}
-function srPk(e,name,code,units){
-  e.preventDefault();
-  var inp=document.getElementById('sr-name');if(inp)inp.value=name;
-  var box=document.getElementById('sr-sg');if(box)box.style.display='none';
-  var ce=document.getElementById('sr-code'),ue=document.getElementById('sr-units'),de=document.getElementById('sr-dept');
-  if(ce)ce.value=code||'';if(ue)ue.value=units||3;
-  var isNet=(DB.net||[]).some(function(r){return r.name===name;});
-  if(de)de.value=isNet?'شبكات':'عام';
-}
 
 function autoFillSemRow(){
   const name=(document.getElementById('sr-name')||{}).value||'';
@@ -1644,6 +1935,14 @@ function autoFillCompRow(){
 }
 
 // ══ RENDER HOME ══
+function updateHomeCards(){
+  const sc=document.getElementById('hc-sem-count');
+  if(sc)sc.textContent=(DB.semCount||10)+' فصول دراسية';
+  const dn=document.getElementById('hc-dept-names');
+  const depts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  if(dn)dn.textContent=Object.values(depts).map(function(v){return v.replace('قسم ','').replace('قسم','').trim();}).join(' · ');
+}
+
 function renderHome(){
   const u=DB.uniInfo||{};
   const p=DB.profile||{};
@@ -1654,14 +1953,27 @@ function renderHome(){
   setText('hdr-admin',u.admin||'الإدارة العامة / الخمس');
   setText('hdr-uniname',(u.uniName||'جامعة المرقب')+' / '+(u.collegeName||'كلية تقنية المعلومات'));
   setText('hdr-name',name);
+  updateHomeCards();
   const uniWrap=document.getElementById('uni-photo-wrap');
-  if(uniWrap)uniWrap.innerHTML=u.uniPhoto
-    ?'<img src="'+u.uniPhoto+'" style="width:56px;height:56px;border-radius:12px;object-fit:cover;display:block">'
-    :'<div style="width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px">🏛️</div>';
+  if(uniWrap){
+    if(u.uniPhoto){
+      const imgEl=uniWrap.querySelector('img');
+      if(imgEl){imgEl.src=u.uniPhoto;}
+      else{uniWrap.innerHTML='<img src="'+u.uniPhoto+'" style="width:56px;height:56px;border-radius:12px;object-fit:cover;display:block">';}
+    } else {
+      uniWrap.innerHTML='<div style="width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px">🏛️</div>';
+    }
+  }
   const colWrap=document.getElementById('col-photo-wrap');
-  if(colWrap)colWrap.innerHTML=u.collegePhoto
-    ?'<img src="'+u.collegePhoto+'" style="width:56px;height:56px;border-radius:12px;object-fit:cover;display:block">'
-    :'<div style="width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px">🎓</div>';
+  if(colWrap){
+    if(u.collegePhoto){
+      const imgEl=colWrap.querySelector('img');
+      if(imgEl){imgEl.src=u.collegePhoto;}
+      else{colWrap.innerHTML='<img src="'+u.collegePhoto+'" style="width:56px;height:56px;border-radius:12px;object-fit:cover;display:block">';}
+    } else {
+      colWrap.innerHTML='<div style="width:56px;height:56px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px">🎓</div>';
+    }
+  }
 }
 
 function editUniInfo(){
@@ -1672,19 +1984,21 @@ function editUniInfo(){
     <div class="fg"><label class="fl">الإدارة العامة</label><input class="fi" id="ui-admin" value="${u.admin||'الإدارة العامة / الخمس'}"></div>
     <div class="fg"><label class="fl">اسم الجامعة</label><input class="fi" id="ui-uname" value="${u.uniName||''}"></div>
     <div class="fg"><label class="fl">صورة الجامعة</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        ${u.uniPhoto?('<img src="'+u.uniPhoto+'" style="width:40px;height:40px;border-radius:8px;object-fit:cover">'):''}
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('uni-photo-inp').click()">📷 رفع صورة</button>
-        <input type="file" id="uni-photo-inp" accept="image/*" onchange="previewUniPhoto(this,'uni')" style="display:none">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div id="uni-prev-wrap" style="width:52px;height:52px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+          ${u.uniPhoto?('<img id="uni-prev-img" src="'+u.uniPhoto+'" style="width:52px;height:52px;object-fit:cover">'):'<span id="uni-prev-img" style="font-size:24px">🏛️</span>'}
+        </div>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer">📷 رفع صورة<input type="file" accept="image/*" onchange="previewUniPhoto(this,'uni')" style="display:none"></label>
       </div>
       <input type="hidden" id="ui-uphoto" value="${u.uniPhoto||''}">
     </div>
     <div class="fg"><label class="fl">اسم الكلية</label><input class="fi" id="ui-cname" value="${u.collegeName||''}"></div>
     <div class="fg"><label class="fl">صورة الكلية</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        ${u.collegePhoto?('<img src="'+u.collegePhoto+'" style="width:40px;height:40px;border-radius:8px;object-fit:cover">'):''}
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('col-photo-inp').click()">📷 رفع صورة</button>
-        <input type="file" id="col-photo-inp" accept="image/*" onchange="previewUniPhoto(this,'col')" style="display:none">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div id="col-prev-wrap" style="width:52px;height:52px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+          ${u.collegePhoto?('<img id="col-prev-img" src="'+u.collegePhoto+'" style="width:52px;height:52px;object-fit:cover">'):'<span id="col-prev-img" style="font-size:24px">🎓</span>'}
+        </div>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer">📷 رفع صورة<input type="file" accept="image/*" onchange="previewUniPhoto(this,'col')" style="display:none"></label>
       </div>
       <input type="hidden" id="ui-cphoto" value="${u.collegePhoto||''}">
     </div>`,
@@ -1718,15 +2032,12 @@ function compressImage(file, maxW, quality, cb){
 function previewUniPhoto(input,which){
   const f=input.files[0];if(!f)return;
   compressImage(f,400,0.7,data=>{
-    const id=which==='uni'?'ui-uphoto':'ui-cphoto';
-    const el=document.getElementById(id);
+    const hidId=which==='uni'?'ui-uphoto':'ui-cphoto';
+    const el=document.getElementById(hidId);
     if(el)el.value=data;
-    const prevId=which==='uni'?'uni-photo-inp':'col-photo-inp';
-    const label=document.getElementById(prevId);
-    if(label){
-      const prev=label.previousElementSibling;
-      if(prev&&prev.tagName==='IMG')prev.src=data;
-    }
+    // live preview
+    const wrap=document.getElementById(which==='uni'?'uni-prev-wrap':'col-prev-wrap');
+    if(wrap)wrap.innerHTML='<img src="'+data+'" style="width:52px;height:52px;object-fit:cover">';
   });
 }
 
@@ -1778,24 +2089,50 @@ function startVoice(targetId,btn){
   if(isRecording){stopVoice();return;}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){alert('⚠️ استخدم Chrome أو Edge للكتابة الصوتية');return;}
-  recognition=new SR();recognition.continuous=true;recognition.interimResults=true;
+  recognition=new SR();
+  recognition.continuous=true;
+  recognition.interimResults=true;
+  recognition.maxAlternatives=1;
   const el=document.getElementById(targetId);
-  recognition.lang=/^[a-zA-Z]/.test((el&&el.placeholder)||'')?'en-US':'ar-SA';
+  // اختيار اللغة تلقائياً
+  const isAr=document.documentElement.lang==='ar'||(el&&(el.dir==='rtl'||el.lang==='ar'));
+  recognition.lang=isAr?'ar-SA':'en-US';
   _voiceTarget=targetId;
-  recognition.onstart=()=>{isRecording=true;if(btn)btn.style.background='var(--red)';if(btn)btn.style.color='#fff';};
-  recognition.onresult=e=>{
-    let final='';
-    Array.from(e.results).forEach(r=>{if(r.isFinal)final+=r[0].transcript;});
-    if(final&&el){el.value=(el.value?el.value+' ':'')+final;}
+  let interim='';
+  let originalVal=el?el.value:'';
+  recognition.onstart=()=>{
+    isRecording=true;
+    if(btn){btn.style.background='var(--red)';btn.style.color='#fff';btn.textContent='⏹️';}
+    if(el){originalVal=el.value;}
   };
-  recognition.onerror=e=>{stopVoice();if(e.error!=='no-speech')alert('خطأ الميكروفون: '+e.error);};
-  recognition.onend=()=>stopVoice();
+  recognition.onresult=e=>{
+    let finalText='';interim='';
+    Array.from(e.results).forEach(r=>{
+      if(r.isFinal)finalText+=r[0].transcript;
+      else interim+=r[0].transcript;
+    });
+    if(el){
+      el.value=originalVal+(originalVal&&(finalText||interim)?' ':'')+finalText+interim;
+      if(finalText)originalVal=el.value;
+    }
+  };
+  recognition.onerror=e=>{
+    stopVoice();
+    if(e.error==='not-allowed')alert('❌ اسمح للمتصفح بالوصول للميكروفون');
+    else if(e.error!=='no-speech')alert('خطأ: '+e.error);
+  };
+  recognition.onend=()=>{
+    if(isRecording){
+      // إعادة التشغيل تلقائياً للاستمرار
+      try{recognition.start();}catch(e){stopVoice();}
+    }
+  };
   recognition.start();
 }
 function stopVoice(){
   isRecording=false;
-  document.querySelectorAll('.mic-v-btn').forEach(b=>{b.style.background='';b.style.color='';});
-  if(recognition){try{recognition.stop();}catch(e){}recognition=null;}
+  document.querySelectorAll('.mic-v-btn').forEach(b=>{b.style.background='';b.style.color='';b.textContent='🎙️';});
+  if(recognition){try{recognition.abort();}catch(e){}recognition=null;}
 }
 function micBtn(id){return `<button class="mic-v-btn btn btn-ghost btn-sm" onclick="startVoice('${id}',this)" title="كتابة صوتية" style="padding:5px 8px">🎙️</button>`;}
 
@@ -1834,16 +2171,36 @@ function insertHW(){
 }
 async function recognizeHW(){
   document.getElementById('hw-status').textContent='⏳ جاري التعرف...';
+  document.getElementById('hw-result').textContent='';
   const canvas=document.getElementById('hw-canvas');
+  if(!hwStrokes||hwStrokes.length===0){
+    document.getElementById('hw-status').textContent='⚠️ ارسم شيئاً أولاً';return;
+  }
   try{
     if(typeof Tesseract==='undefined'){
-      await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js';
+        s.onload=res;s.onerror=()=>{
+          // Fallback to older version
+          const s2=document.createElement('script');
+          s2.src='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
+          s2.onload=res;s2.onerror=rej;document.head.appendChild(s2);
+        };
+        document.head.appendChild(s);
+      });
     }
     const lang=document.getElementById('hw-lang').value;
-    const r=await Tesseract.recognize(canvas,lang,{});
-    document.getElementById('hw-result').textContent=r.data.text.trim()||'⚠️ لم يتم التعرف';
-    document.getElementById('hw-status').textContent='✅ تم';
-  }catch(e){document.getElementById('hw-status').textContent='❌ خطأ';}
+    const worker=await Tesseract.createWorker(lang);
+    const r=await worker.recognize(canvas);
+    await worker.terminate();
+    const txt=r.data.text.trim();
+    document.getElementById('hw-result').textContent=txt||'⚠️ لم يتم التعرف على الخط';
+    document.getElementById('hw-status').textContent=txt?'✅ تم التعرف':'⚠️ حاول مرة أخرى';
+  }catch(e){
+    document.getElementById('hw-status').textContent='❌ خطأ في التعرف';
+    console.error('HW error:',e);
+  }
 }
 function hwBtn(id){return `<button class="btn btn-ghost btn-sm" onclick="openHW('${id}')" title="كتابة يدوية" style="padding:5px 8px">✍️</button>`;}
 
@@ -2826,6 +3183,12 @@ document.addEventListener('DOMContentLoaded', function(){
     DB.academicManual=ld('academicManual')||{};
     DB.documents=DB.documents||ld('documents')||[];
     DB.albums=DB.albums||ld('albums')||[];
+    DB.deptNames=ld('deptNames')||{gen:'قسم العام',net:'قسم الشبكات'};
+    DB.deptIcons=ld('deptIcons')||{};
+    DB.deptIcons=ld('deptIcons')||{};
+    DB.semCount=ld('semCount')||10;
+    // تحميل الأقسام المضافة
+    Object.keys(DB.deptNames).forEach(k=>{if(!DB[k])DB[k]=ld(k)||[];});
     async function initAndRender(){
       if(typeof window.loadFromCloud==='function'){
         try{
