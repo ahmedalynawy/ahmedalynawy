@@ -28,7 +28,7 @@ db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
 
 // معرف ثابت للبيانات المشتركة بين كل الأجهزة
 const CLOUD_DOC = 'ahmedalynawy2005_data';
-const DB_KEYS=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual'];
+const DB_KEYS=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual','documents','albums','deptNames','deptIcons','semCount'];
 
 window.showSyncStatus=function(msg){
   let el=document.getElementById('sync-status');
@@ -42,7 +42,32 @@ window.showSyncStatus=function(msg){
 window.saveAllToCloud=async function(){
   try{
     const all={};
+    // حفظ الـ keys الثابتة
     DB_KEYS.forEach(k=>{const v=localStorage.getItem('tdb_'+k);if(v)all[k]=JSON.parse(v);});
+    // حفظ الأقسام الديناميكية (dept_xxxx)
+    try{
+      const dn=JSON.parse(localStorage.getItem('tdb_deptNames')||'{}');
+      Object.keys(dn).forEach(k=>{
+        if(!DB_KEYS.includes(k)){const v=localStorage.getItem('tdb_'+k);if(v)all[k]=JSON.parse(v);}
+      });
+    }catch(ex){}
+    // حفظ المستندات بدون بيانات الصور الكبيرة (تتزامن البيانات فقط)
+    if(all.documents){
+      all.documents=all.documents.map(d=>{
+        if(d.data&&d.data.length>500000){
+          return {...d,data:'__large_local__'}; // صور كبيرة تبقى محلية
+        }
+        return d;
+      });
+    }
+    const payload=JSON.stringify(all);
+    // فحص الحجم (Firestore حد 1MB)
+    if(payload.length>900000){
+      // حذف بيانات الصور كلها لو الحجم كبير
+      if(all.documents){
+        all.documents=all.documents.map(d=>({...d,data:d.data?'__large_local__':undefined}));
+      }
+    }
     await db.collection('tdb').doc(CLOUD_DOC).set({value:JSON.stringify(all),updated:Date.now()});
     showSyncStatus('✅ تمت المزامنة');
   }catch(e){
@@ -56,11 +81,55 @@ window.loadFromCloud=async function(){
     const snap=await db.collection('tdb').doc(CLOUD_DOC).get();
     if(snap.exists){
       const allData=JSON.parse(snap.data().value);
-      Object.keys(allData).forEach(k=>{localStorage.setItem('tdb_'+k,JSON.stringify(allData[k]));});
+      Object.keys(allData).forEach(k=>{
+        if(k==='apppass')return;
+        localStorage.setItem('tdb_'+k,JSON.stringify(allData[k]));
+      });
+      // تحميل الأقسام الديناميكية في DB
+      if(window.DB){
+        DB_KEYS.forEach(k=>{try{const v=localStorage.getItem('tdb_'+k);if(v)window.DB[k]=JSON.parse(v);}catch(e){}});
+        try{
+          const dn=JSON.parse(localStorage.getItem('tdb_deptNames')||'{}');
+          Object.keys(dn).forEach(k=>{try{const v=localStorage.getItem('tdb_'+k);if(v)window.DB[k]=JSON.parse(v);}catch(e){}});
+        }catch(e){}
+      }
       return true;
     }
   }catch(e){console.log('load error:',e.code,e.message);}
   return false;
+};
+
+// Real-time listener - يستمع للتغييرات من الأجهزة الأخرى فوراً
+window.startRealtimeSync=function(){
+  if(!window.db||!window.CLOUD_DOC)return;
+  if(window._realtimeUnsub)window._realtimeUnsub();
+  let firstCall=true;
+  window._realtimeUnsub=db.collection('tdb').doc(CLOUD_DOC).onSnapshot(snap=>{
+    if(firstCall){firstCall=false;return;} // تجاهل أول استجابة (عند التشغيل)
+    if(!snap.exists)return;
+    try{
+      const allData=JSON.parse(snap.data().value);
+      Object.keys(allData).forEach(k=>{
+        if(k==='apppass')return;
+        localStorage.setItem('tdb_'+k,JSON.stringify(allData[k]));
+      });
+      // تحديث DB في الذاكرة
+      if(window.DB){
+        DB_KEYS.forEach(k=>{try{const v=localStorage.getItem('tdb_'+k);if(v)window.DB[k]=JSON.parse(v);}catch(e){}});
+        try{
+          const dn=JSON.parse(localStorage.getItem('tdb_deptNames')||'{}');
+          Object.keys(dn).forEach(k=>{try{const v=localStorage.getItem('tdb_'+k);if(v)window.DB[k]=JSON.parse(v);}catch(e){}});
+        }catch(e){}
+      }
+      showSyncStatus('🔄 تم استقبال تحديث من جهاز آخر');
+      // إعادة رسم الصفحة الحالية
+      if(window.pageStack&&window.pageStack.length>0&&window.renderPage){
+        const cur=window.pageStack[window.pageStack.length-1];
+        const c=document.getElementById('page-content');
+        if(c)window.renderPage(cur);
+      }
+    }catch(e){console.log('realtime error:',e);}
+  },err=>console.log('snapshot error:',err));
 };
 </script>
 
@@ -609,17 +678,7 @@ const PAGE_TITLES={
 };
 
 function renderPage(page){
-  // عنوان ديناميكي للأقسام
-  if(page.startsWith('dept-')){
-    const key=page.replace('dept-','');
-    if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
-    if(!DB.deptIcons)DB.deptIcons={};
-    const dName=DB.deptNames[key]||key;
-    const dIcon=DB.deptIcons[key]||'📗';
-    document.getElementById('app-title').textContent=dIcon+' '+dName;
-  } else {
-    document.getElementById('app-title').textContent=PAGE_TITLES[page]||'—';
-  }
+  document.getElementById('app-title').textContent=PAGE_TITLES[page]||'—';
   document.getElementById('topbar-actions').innerHTML='';
   // تحديث تلقائي كل 5 ثوانٍ
   clearInterval(window._acadTimer);
@@ -644,9 +703,14 @@ function renderPage(page){
   else if(page.startsWith('dept-')){
     const key=page.replace('dept-','');
     if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
-    // تحميل بيانات القسم من localStorage لو ما كانت محمّلة
+    if(!DB.deptIcons)DB.deptIcons={};
+    // تحميل من localStorage لو مو موجود في الذاكرة
     if(!DB[key])DB[key]=ld(key)||[];
-    renderDeptTable(c,key,DB.deptNames[key]||key);
+    // تحديث العنوان بالاسم والأيقونة الصحيحة
+    const dIcon=DB.deptIcons[key]||'📗';
+    const dName=DB.deptNames[key]||key;
+    document.getElementById('app-title').textContent=dIcon+' '+dName;
+    renderDeptTable(c,key,dName);
   }
   else if(page==='documents')renderDocuments(c);
   else if(page==='settings')renderSettings(c);
@@ -783,11 +847,10 @@ function renameDept(key){
     sv('deptNames',DB.deptNames);
     sv('deptIcons',DB.deptIcons);
     closeModal();
-    // تحديث العنوان تلقائياً لو كنا داخل القسم حالياً
+    // تحديث العنوان لو كنا داخل نفس القسم
     const curPage=pageStack[pageStack.length-1];
     if(curPage==='dept-'+key){
-      const appTitle=document.getElementById('app-title');
-      if(appTitle)appTitle.textContent=newIcon+' '+name;
+      document.getElementById('app-title').textContent=newIcon+' '+name;
     }
     renderPage('depts');
     updateHomeCards();
@@ -895,8 +958,16 @@ function filterDeptTable(val){
 }
 function addDeptRow(key){
   openModal('➕ إضافة مقرر',deptForm({}),()=>{
-    DB[key].push({id:Date.now(),name:gv('dr-name'),code:gv('dr-code'),units:gv('dr-units')||3,pre:gv('dr-pre')||'—',next:gv('dr-next')||'—'});
+    const newRow={id:Date.now(),name:gv('dr-name'),code:gv('dr-code'),units:gv('dr-units')||3,pre:gv('dr-pre')||'—',next:gv('dr-next')||'—'};
+    if(!newRow.name||!newRow.name.trim()){alert('❌ اسم المقرر مطلوب');return;}
+    // تحقق إذا المقرر موجود في أقسام أخرى
+    const existsInOtherDept=findCourseInDepts(newRow.name);
+    if(existsInOtherDept&&existsInOtherDept.deptKey!==key){
+      if(!confirm('⚠️ هذا المقرر موجود في '+existsInOtherDept.deptName+'\nهل تريد إضافته هنا أيضاً؟'))return;
+    }
+    DB[key].push(newRow);
     sv(key,DB[key]);closeModal();window._deptRender&&window._deptRender();
+    const cc=document.getElementById('dept-course-count');if(cc)cc.textContent=DB[key].length+' مقرر';
   });
 }
 function editDeptRow(key,i){
@@ -904,6 +975,7 @@ function editDeptRow(key,i){
   openModal('✏️ تعديل مقرر',deptForm(r),()=>{
     DB[key][i]={...r,name:gv('dr-name'),code:gv('dr-code'),units:gv('dr-units'),pre:gv('dr-pre')||'—',next:gv('dr-next')||'—'};
     sv(key,DB[key]);closeModal();window._deptRender&&window._deptRender();
+    const cc=document.getElementById('dept-course-count');if(cc)cc.textContent=DB[key].length+' مقرر';
   });
 }
 function delDeptRow(key,i){if(!confirm('حذف؟'))return;DB[key].splice(i,1);sv(key,DB[key]);
@@ -924,7 +996,7 @@ function renderCompleted(c){
       <td style="padding:10px 12px;text-align:center;color:var(--text2);font-size:12px;font-weight:700">${i+1}</td>
       <td style="padding:10px 12px"><b>${r.name}</b></td>
       <td style="padding:10px 12px;color:var(--text2);font-size:12px">${r.code}</td>
-      <td style="padding:10px 12px;text-align:center"><span class="badge ${gradeBC(r.grade)}">${r.grade}</span></td>
+      <td style="padding:10px 12px;text-align:center"><span class="badge ${gradeBC(r.grade)}">${r.grade!==null&&r.grade!==undefined?r.grade:'—'}</span></td>
       <td style="padding:10px 12px;text-align:center;color:var(--text2)">${r.units}</td>
       <td style="padding:10px 12px;color:var(--text2);font-size:12px">${r.sem||'—'}</td>
       <td style="padding:10px 12px;text-align:center;color:var(--text2);font-size:12px">${r.semNum||'—'}</td>
@@ -1098,9 +1170,14 @@ function addCompleted(){openModal('➕ إضافة مقرر مكتمل',completed
   const duplicate=DB.completed.some(x=>x.name.trim()===newName);
   if(duplicate){alert('❌ هذا المقرر موجود مسبقاً');return;}
   const newItem={id:Date.now(),name:newName,code:gv('cf-code'),grade:grade,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''};
+  // تحقق من صحة البيانات لو المقرر موجود في الأقسام
+  const {course:ac,errors:ae}=validateCompletedRow(newItem);
+  if(ae.length>0&&ac){alert('❌ لا يمكن الحفظ:\n'+ae.join('\n'));return;}
+  if(!ac&&newItem.name&&newItem.name.trim()){
+    if(!confirm('⚠️ المقرر "'+newItem.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+  }
   DB.completed.push(newItem);
   sv('completed',DB.completed);
-  // إضافة للفصول تلقائياً
   syncCompletedToSemester(newItem,null);
   closeModal();window._compRender&&window._compRender();
 });}
@@ -1115,6 +1192,12 @@ function editCompleted(id){const i=DB.completed.findIndex(x=>x.id===id);if(i<0)r
   const duplicate=DB.completed.some((x,xi)=>xi!==i&&x.name.trim()===newName.trim());
   if(duplicate){alert('❌ هذا المقرر موجود مسبقاً');return;}
   const updated={...r,name:newName,code:gv('cf-code'),grade:newGrade,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''};
+  // تحقق من صحة البيانات لو المقرر موجود في الأقسام
+  const {course:ec,errors:ee}=validateCompletedRow(updated);
+  if(ee.length>0&&ec){alert('❌ لا يمكن الحفظ:\n'+ee.join('\n'));return;}
+  if(!ec&&updated.name&&updated.name.trim()){
+    if(!confirm('⚠️ المقرر "'+updated.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+  }
   // تحديث الاسم في الفصول إذا تغير
   const semOrder={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
   const oldIdx=semOrder[oldSemNum];
@@ -1192,16 +1275,31 @@ function slPk(e,name){
 function addSlot(){
   openModal('➕ إضافة محاضرة',
     `<div class="fr"><div class="fg"><label class="fl">اليوم</label><select class="fs" id="sl-day">${DAYS.map(d=>'<option>'+d+'</option>').join('')}</select></div><div class="fg"><label class="fl">الوقت</label><select class="fs" id="sl-time">${TIMES.map(t=>'<option value="'+t+'">'+t+':00 — '+(t+2)+':00</option>').join('')}</select></div></div>`+slotForm(null),
-    ()=>{const d=gv('sl-day'),t=parseInt(gv('sl-time'));if(!DB.timetable[d])DB.timetable[d]={};DB.timetable[d][t]={name:gv('sl-name'),room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();}
+    ()=>{const d=gv('sl-day'),t=parseInt(gv('sl-time')),sn=gv('sl-name');
+    if(!DB.timetable[d])DB.timetable[d]={};
+    const sc=findCourseInDepts(sn);
+    if(sn&&!sc){if(!confirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
+    DB.timetable[d][t]={name:sn,room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();}
   );
 }
 function addSlotAt(day,time){
-  openModal(`➕ ${day} ${time}:00`,slotForm(null),()=>{if(!DB.timetable[day])DB.timetable[day]={};DB.timetable[day][time]={name:gv('sl-name'),room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();});
+  openModal(`➕ ${day} ${time}:00`,slotForm(null),()=>{
+    const sn=gv('sl-name');
+    if(!DB.timetable[day])DB.timetable[day]={};
+    const sc=findCourseInDepts(sn);
+    if(sn&&!sc){if(!confirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
+    DB.timetable[day][time]={name:sn,room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();
+  });
 }
 function editSlot(day,time){
   const slot=DB.timetable[day]&&DB.timetable[day][time];
   openModal(`✏️ ${day} ${time}:00`,slotForm(slot),()=>{
-    if(gv('sl-name')){DB.timetable[day][time]={name:gv('sl-name'),room:gv('sl-room')};}
+    const sn=gv('sl-name');
+    if(sn){
+      const sc=findCourseInDepts(sn);
+      if(!sc){if(!confirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
+      DB.timetable[day][time]={name:sn,room:gv('sl-room')};
+    }
     else{DB.timetable[day][time]=null;}
     sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();
   },true,'🗑️ حذف',()=>{DB.timetable[day][time]=null;sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();});
@@ -1342,8 +1440,20 @@ function exPk(e,name){
 }
 function fmtDate(iso){if(!iso)return'';const p=iso.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso;}
 function getExam(){return{name:gv('ex-name'),mid:{date:fmtDate(gv('ex-md')),day:gv('ex-mday'),time:gv('ex-mt'),room:gv('ex-mr')},fin:{date:fmtDate(gv('ex-fd')),day:gv('ex-fday'),time:gv('ex-ft'),room:gv('ex-fr')}};}
-function addExam(){openModal('➕ إضافة امتحان',examForm(null),()=>{DB.exams.push({id:Date.now(),...getExam()});sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();});}
-function editExam(i){const e=DB.exams[i];openModal('✏️ تعديل امتحان',examForm(e),()=>{DB.exams[i]={...e,...getExam()};sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();});}
+function addExam(){openModal('➕ إضافة امتحان',examForm(null),()=>{
+  const ex=getExam();
+  const ec=findCourseInDepts(ex.name);
+  if(ex.name&&!ec){if(!confirm('⚠️ المقرر "'+ex.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
+  DB.exams.push({id:Date.now(),...ex});sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();
+});
+}
+function editExam(i){const e=DB.exams[i];openModal('✏️ تعديل امتحان',examForm(e),()=>{
+  const ex=getExam();
+  const ec=findCourseInDepts(ex.name);
+  if(ex.name&&!ec){if(!confirm('⚠️ المقرر "'+ex.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
+  DB.exams[i]={...e,...ex};sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();
+});
+}
 function delExam(i){if(!confirm('حذف؟'))return;DB.exams.splice(i,1);sv('exams',DB.exams);window._examsRender&&window._examsRender();}
 
 // ══ PLAN ══
@@ -1524,6 +1634,7 @@ function openSemDetail(n){
         <div style="font-size:10px;color:var(--text2)">معدل العام</div>
       </div>
     </div>
+    <button onclick="addSemRow()" style="width:100%;background:var(--accent);border:none;border-radius:12px;color:#fff;padding:11px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">＋ إضافة مقرر</button>
     <div id="sem-rows" style="display:flex;flex-direction:column;gap:4px"></div>
     <button onclick="addSemRow()" style="width:100%;background:var(--surface);border:2px dashed var(--border);border-radius:12px;color:var(--text2);padding:14px;font-family:inherit;font-size:14px;cursor:pointer;margin-top:10px" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">＋ إضافة مقرر</button>`;
   renderSemCards(color);
@@ -1536,12 +1647,13 @@ function renderSemCards(color){
   const gc=g=>g>=85?'var(--green)':g>=75?'var(--blue)':g>=65?'var(--yellow)':g>=50?'var(--accent)':'var(--red)';
   document.getElementById('sem-rows').innerHTML=rows.length?rows.map((r,i)=>{
     const t=parseFloat(r.total)||0;
-    const pass=t>=50;
+    const hasGrade=r.total!==undefined&&r.total!==null&&r.total!=='';
+    const pass=hasGrade&&t>=50;
     return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:7px 9px">
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
         <span style="font-size:12px;font-weight:900;color:${c};background:${c}22;min-width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
         <div style="font-size:14px;font-weight:900;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name||'—'}</div>
-        <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:10px;background:${pass?'rgba(67,233,123,.15)':'rgba(245,87,108,.15)'};color:${pass?'var(--green)':'var(--red)'};flex-shrink:0">${pass?'ناجح':'راسب'}</span>
+        <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:10px;background:${pass?'rgba(67,233,123,.15)':'rgba(245,87,108,.15)'};color:${pass?'var(--green)':'var(--red)'};flex-shrink:0">${hasGrade?(pass?'ناجح':'راسب'):'—'}</span>
         <button style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;font-size:13px;width:30px;height:28px;flex-shrink:0" onclick="editSemRow(${i})">✏️</button>
         <button style="background:rgba(245,87,108,.1);border:1px solid var(--border);border-radius:6px;color:var(--red);cursor:pointer;font-size:13px;width:30px;height:28px;flex-shrink:0" onclick="delSemRow(${i})">🗑</button>
       </div>
@@ -1631,7 +1743,7 @@ function renderSemRows(){
           <th style="padding:9px 5px;text-align:center;color:var(--text2);font-size:11px;font-weight:700;width:60px">إجراء</th>
         </tr></thead>
         <tbody>${rows.map((r,i)=>{
-          const t=parseFloat(r.total)||0,c=gc(t),pass=t>=50;
+          const t=parseFloat(r.total)||0,c=gc(t),hasG=r.total!==undefined&&r.total!==null&&r.total!=='',pass=hasG&&t>=50;
           return`<tr style="border-bottom:1px solid var(--border)">
             <td style="padding:10px 5px;text-align:center">
               <span style="font-size:11px;font-weight:700;color:var(--text2)">${i+1}</span>
@@ -1651,7 +1763,7 @@ function renderSemRows(){
             </td>
             <td style="padding:10px 5px;text-align:center">
               <div style="font-size:15px;font-weight:900;color:${c}">${r.total||'—'}</div>
-              ${r.total?`<div style="font-size:12px;font-weight:900;margin-top:2px;color:${pass?'var(--green)':'var(--red)'}">${pass?'ناجح':'راسب'}</div>`:''}
+              ${r.total?`<div style="font-size:12px;font-weight:900;margin-top:2px;color:${pass?'var(--green)':'var(--red)'}">${hasG?(pass?'ناجح':'راسب'):''}</div>`:''}
             </td>
             <td style="padding:8px 5px;text-align:center">
               <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
@@ -1735,15 +1847,92 @@ function autoSyncCompleted(r){
   sv('completed',DB.completed);
 }
 
+
+// ══ VALIDATION ══
+function findCourseInDepts(name){
+  // يبحث عن مقرر في كل الأقسام، يرجع بيانات المقرر أو null
+  if(!name||!name.trim())return null;
+  const depts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  for(const k of Object.keys(depts)){
+    if(!DB[k]){const lv=localStorage.getItem('tdb_'+k);DB[k]=lv?JSON.parse(lv):[];}
+    const found=(DB[k]||[]).find(r=>r.name&&r.name.trim()===name.trim());
+    if(found)return{...found,deptKey:k,deptName:depts[k]};
+  }
+  return null;
+}
+
+function validateSemRow(r){
+  // r = {name, code, units, mid, fin, total, dept}
+  const course=findCourseInDepts(r.name);
+  const errors=[];
+  if(course){
+    // المقرر موجود - تحقق من الرمز والوحدات والقسم
+    if(r.code&&r.code.trim()&&r.code.trim()!==course.code)
+      errors.push('⚠️ رمز المقرر خاطئ - الصحيح: '+course.code);
+    if(r.units&&parseInt(r.units)!==parseInt(course.units))
+      errors.push('⚠️ الوحدات خاطئة - الصحيح: '+course.units+' وحدات');
+    const correctDept=(course.deptName||'').replace('قسم ','').replace('قسم','').trim();
+    if(r.dept&&r.dept.trim()&&r.dept.trim()!==correctDept)
+      errors.push('⚠️ القسم خاطئ - الصحيح: '+correctDept);
+  }
+  // تحقق من المجموع لو في نصفي ونهائي
+  if(r.mid!==''&&r.mid!==undefined&&r.fin!==''&&r.fin!==undefined){
+    const mid=parseFloat(r.mid)||0;
+    const fin=parseFloat(r.fin)||0;
+    const expectedTotal=mid+fin;
+    if(r.total!==''&&r.total!==undefined&&Math.abs(parseFloat(r.total)-expectedTotal)>0.5)
+      errors.push('⚠️ المجموع خاطئ - النصفي+النهائي = '+expectedTotal.toFixed(1));
+  }
+  if(r.total!==''&&r.total!==undefined){
+    const t=parseFloat(r.total);
+    if(isNaN(t)||t<0||t>100)
+      errors.push('⚠️ المجموع يجب أن يكون بين 0 و 100');
+  }
+  return{course,errors};
+}
+
+function validateCompletedRow(r){
+  // r = {name, code, units, dept, grade}
+  const course=findCourseInDepts(r.name);
+  const errors=[];
+  if(course){
+    if(r.code&&r.code.trim()&&r.code.trim()!==course.code)
+      errors.push('⚠️ رمز المقرر خاطئ - الصحيح: '+course.code);
+    if(r.units&&parseInt(r.units)!==parseInt(course.units))
+      errors.push('⚠️ الوحدات خاطئة - الصحيح: '+course.units+' وحدات');
+    const correctDept=(course.deptName||'').replace('قسم ','').replace('قسم','').trim();
+    if(r.dept&&r.dept.trim()&&r.dept.trim()!==correctDept)
+      errors.push('⚠️ القسم خاطئ - الصحيح: '+correctDept);
+  }
+  return{course,errors};
+}
+
+function validateDeptRow(r,existingCourse){
+  // تحقق من مقرر في قاعدة البيانات
+  const warnings=[];
+  if(!r.name||!r.name.trim()){warnings.push('⚠️ اسم المقرر مطلوب');return{errors:warnings};}
+  // تحقق بسيط من الوحدات
+  if(r.units&&(parseInt(r.units)<1||parseInt(r.units)>6))
+    warnings.push('⚠️ الوحدات غير معتادة (1-6)');
+  return{errors:warnings};
+}
+
+
 function addSemRow(){openModal('➕ إضافة مقرر',semRowForm(null),()=>{
   if(!DB.semesters[curSem])DB.semesters[curSem]={rows:[]};
   if(!DB.semesters[curSem].rows)DB.semesters[curSem].rows=[];
   const r=getSemRow();
-  // منع التكرار في نفس الفصل
   if(DB.semesters[curSem].rows.some(function(x){return x.name===r.name;})){alert('❌ هذا المقرر موجود في هذا الفصل مسبقاً');return;}
-  // منع إضافة مقرر مكتمل
   const isComp=(DB.completed||[]).some(function(x){return x.name&&x.name.trim()===r.name.trim();});
   if(isComp){alert('❌ هذا المقرر موجود في المقررات المكتملة ولا يمكن إضافته');return;}
+  // تحقق من صحة البيانات
+  const {course,errors}=validateSemRow(r);
+  if(errors.length>0&&course){
+    alert('❌ لا يمكن الحفظ:\n'+errors.join('\n'));return;
+  }
+  if(!course&&r.name&&r.name.trim()){
+    if(!confirm('⚠️ المقرر "'+r.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+  }
   DB.semesters[curSem].rows.push(r);
   sv('semesters',DB.semesters);
   autoSyncCompleted(r);
@@ -1751,6 +1940,14 @@ function addSemRow(){openModal('➕ إضافة مقرر',semRowForm(null),()=>{
 });}
 function editSemRow(i){const r=DB.semesters[curSem].rows[i];openModal('✏️ تعديل مقرر',semRowForm(r),()=>{
   const nr={...r,...getSemRow()};
+  // تحقق من صحة البيانات
+  const {course,errors}=validateSemRow(nr);
+  if(errors.length>0&&course){
+    alert('❌ لا يمكن الحفظ:\n'+errors.join('\n'));return;
+  }
+  if(!course&&nr.name&&nr.name.trim()){
+    if(!confirm('⚠️ المقرر "'+nr.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+  }
   DB.semesters[curSem].rows[i]=nr;
   sv('semesters',DB.semesters);
   autoSyncCompleted(nr);
@@ -2240,6 +2437,43 @@ function renderSettings(c){
         </div>`:''}
       </div>
 
+      <!-- قسم المظهر -->
+      <div style="font-size:11px;color:var(--text2);font-weight:700;padding:14px 4px 4px;text-transform:uppercase;letter-spacing:1px">المظهر</div>
+      <div style="background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:20px">🖼️</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text)">خلفية الشاشة الرئيسية</div>
+              <div style="font-size:11px;color:var(--text2)">تغيير خلفية الصفحة الرئيسية</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <label style="background:var(--accent);border:none;border-radius:8px;padding:7px 14px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+              اختيار
+              <input type="file" accept="image/*" onchange="setHomeBg(this)" style="display:none">
+            </label>
+            <button onclick="removeHomeBg()" style="background:rgba(245,87,108,.1);border:1px solid var(--red);border-radius:8px;padding:7px 10px;color:var(--red);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">مسح</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:20px">🔒</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text)">خلفية شاشة القفل</div>
+              <div style="font-size:11px;color:var(--text2)">تغيير خلفية شاشة تسجيل الدخول</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <label style="background:var(--accent);border:none;border-radius:8px;padding:7px 14px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+              اختيار
+              <input type="file" accept="image/*" onchange="setLockBg(this)" style="display:none">
+            </label>
+            <button onclick="removeLockBg()" style="background:rgba(245,87,108,.1);border:1px solid var(--red);border-radius:8px;padding:7px 10px;color:var(--red);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">مسح</button>
+          </div>
+        </div>
+      </div>
+
       <!-- قسم البيانات -->
       <div style="font-size:11px;color:var(--text2);font-weight:700;padding:14px 4px 4px;text-transform:uppercase;letter-spacing:1px">البيانات</div>
       <div style="background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border)">
@@ -2279,6 +2513,20 @@ function renderSettings(c){
       </div>
 
     </div>`;
+}
+
+function toggleSync(){
+  const isOff=localStorage.getItem('tdb_syncOff')==='1';
+  if(isOff){
+    localStorage.removeItem('tdb_syncOff');
+    showSyncStatus('✅ تم تفعيل المزامنة');
+    // مزامنة فورية بعد التفعيل
+    if(typeof window.saveAllToCloud==='function')window.saveAllToCloud();
+  }else{
+    localStorage.setItem('tdb_syncOff','1');
+    showSyncStatus('🚫 تم إيقاف المزامنة على هذا الجهاز');
+  }
+  renderSettings(document.getElementById('page-content'));
 }
 
 function setNewPass(){
@@ -2365,13 +2613,51 @@ function removeLockBg(){
 }
 
 function clearAllData(){
-  if(!confirm('⚠️ هذا سيمسح كل البيانات نهائياً. هل أنت متأكد؟'))return;
-  const keys=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual','documents','albums'];
-  keys.forEach(k=>{
-    try{localStorage.removeItem('tdb_'+k);}catch(e){}
-    try{sessionStorage.removeItem('tdb_'+k);}catch(e){}
+  if(!confirm('⚠️ سيتم مسح البيانات محلياً فقط من هذا الجهاز.\nالبيانات ستبقى في السحابة ويمكنك استعادتها.\nهل تريد المتابعة؟'))return;
+  const allKeys=Object.keys(localStorage).filter(k=>k.startsWith('tdb_'));
+  const backup={};
+  allKeys.forEach(k=>{backup[k]=localStorage.getItem(k);});
+  allKeys.forEach(k=>{
+    try{localStorage.removeItem(k);}catch(e){}
+    try{sessionStorage.removeItem(k);}catch(e){}
   });
-  location.reload();
+  let sec=60;
+  const overlay=document.createElement('div');
+  overlay.id='undo-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px 24px;text-align:center;max-width:320px;width:90%">
+    <div style="font-size:40px;margin-bottom:10px">🗑️</div>
+    <div style="font-size:17px;font-weight:900;color:var(--red);margin-bottom:6px">تم مسح البيانات محلياً</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:18px">يمكنك التراجع خلال <span id="undo-sec" style="color:var(--yellow);font-weight:900">${sec}</span> ثانية</div>
+    <button id="undo-btn" style="width:100%;background:var(--accent);border:none;border-radius:10px;color:#fff;padding:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px">↩️ تراجع عن الحذف</button>
+    <button id="confirm-del-btn" style="width:100%;background:rgba(245,87,108,.15);border:1px solid var(--red);border-radius:10px;color:var(--red);padding:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">تأكيد الحذف الآن</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  const timer=setInterval(()=>{
+    sec--;
+    const el=document.getElementById('undo-sec');
+    if(el)el.textContent=sec;
+    if(sec<=0){
+      clearInterval(timer);
+      document.getElementById('undo-overlay')?.remove();
+      sessionStorage.setItem('tdb_justCleared','1');
+      location.reload();
+    }
+  },1000);
+  document.getElementById('undo-btn').onclick=()=>{
+    clearInterval(timer);
+    Object.entries(backup).forEach(([k,v])=>{
+      try{localStorage.setItem(k,v);}catch(e){}
+    });
+    overlay.remove();
+    showSyncStatus('✅ تم التراجع عن الحذف');
+  };
+  document.getElementById('confirm-del-btn').onclick=()=>{
+    clearInterval(timer);
+    overlay.remove();
+    sessionStorage.setItem('tdb_justCleared','1');
+    location.reload();
+  };
 }
 function exportData(){
   const keys=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual','documents','albums'];
@@ -3089,7 +3375,12 @@ window.addEventListener('popstate', function(){
 
 // ── PASSWORD GATE ──
 function checkPasswordGate(cb){
-  const stored=localStorage.getItem('tdb_apppass');
+  // إصلاح apppass لو كان متحفظ بشكل خاطئ (مع JSON quotes)
+  let stored=localStorage.getItem('tdb_apppass');
+  if(stored&&stored.startsWith('"')&&stored.endsWith('"')){
+    stored=JSON.parse(stored);
+    localStorage.setItem('tdb_apppass',stored);
+  }
   showSplashGate(stored, cb);
 }
 
@@ -3147,15 +3438,36 @@ function showSplashGate(stored, cb){
     setTimeout(()=>{document.body.removeChild(gate);cb();},400);
   }
 
+  let failCount=0;
   function tryLogin(){
     if(!stored){closeGate();return;}
     const val=inp?inp.value:'';
     if(btoa(val)===stored){
+      failCount=0;
       closeGate();
     }else{
+      failCount++;
       if(err)err.textContent='❌ كلمة المرور غير صحيحة';
       if(inp){inp.style.borderColor='#f5576c';inp.value='';}
       setTimeout(()=>{if(inp)inp.style.borderColor='#c9a84c';if(err)err.textContent='';},2000);
+      // بعد 3 محاولات خاطئة يظهر زر نسيت كلمة المرور
+      if(failCount>=3){
+        let forgotBtn=gate.querySelector('#forgot-btn');
+        if(!forgotBtn){
+          forgotBtn=document.createElement('div');
+          forgotBtn.id='forgot-btn';
+          forgotBtn.style.cssText='text-align:center;margin-top:10px;cursor:pointer;color:#c9a84c;font-size:13px;text-decoration:underline';
+          forgotBtn.textContent='نسيت كلمة المرور؟';
+          forgotBtn.onclick=()=>{
+            if(confirm('⚠️ سيتم حذف كلمة المرور من هذا الجهاز فقط.\nهل تريد المتابعة؟')){
+              localStorage.removeItem('tdb_apppass');
+              gate.style.opacity='0';
+              setTimeout(()=>{document.body.removeChild(gate);cb();},400);
+            }
+          };
+          gate.querySelector('#gate-btn').after(forgotBtn);
+        }
+      }
     }
   }
   btn.onclick=tryLogin;
@@ -3192,18 +3504,23 @@ document.addEventListener('DOMContentLoaded', function(){
     async function initAndRender(){
       if(typeof window.loadFromCloud==='function'){
         try{
-          const loaded=await window.loadFromCloud();
-          if(loaded){
-            DB.profile=ld('profile');DB.timetable=ld('timetable');DB.exams=ld('exams');
-            DB.plan=ld('plan');DB.completed=ld('completed');DB.gen=ld('gen');
-            DB.net=ld('net');DB.semesters=ld('semesters');DB.uniInfo=ld('uniInfo');
-            DB.academicManual=ld('academicManual')||{};
+          const justCleared=sessionStorage.getItem('tdb_justCleared');
+          sessionStorage.removeItem('tdb_justCleared');
+          if(!justCleared){
+            const loaded=await window.loadFromCloud();
+            if(loaded){
+              DB.profile=ld('profile');DB.timetable=ld('timetable');DB.exams=ld('exams');
+              DB.plan=ld('plan');DB.completed=ld('completed');DB.gen=ld('gen');
+              DB.net=ld('net');DB.semesters=ld('semesters');DB.uniInfo=ld('uniInfo');
+              DB.academicManual=ld('academicManual')||{};
+            }
           }
         }catch(e){}
       }
       renderHome();
       const savedHomeBg=localStorage.getItem('tdb_homebg');
       if(savedHomeBg)setTimeout(()=>applyHomeBg(savedHomeBg),100);
+      if(typeof window.startRealtimeSync==='function')window.startRealtimeSync();
     }
     initAndRender();
   });
