@@ -44,6 +44,8 @@ window.saveAllToCloud=async function(){
     const all={};
     // حفظ الـ keys الثابتة
     DB_KEYS.forEach(k=>{const v=localStorage.getItem('tdb_'+k);if(v)all[k]=JSON.parse(v);});
+    // حفظ كلمة مرور التطبيق (لتكون موحدة على كل الأجهزة)
+    all.apppass=localStorage.getItem('tdb_apppass')||'';
     // حفظ الأقسام الديناميكية (dept_xxxx)
     try{
       const dn=JSON.parse(localStorage.getItem('tdb_deptNames')||'{}');
@@ -82,7 +84,11 @@ window.loadFromCloud=async function(){
     if(snap.exists){
       const allData=JSON.parse(snap.data().value);
       Object.keys(allData).forEach(k=>{
-        if(k==='apppass')return;
+        if(k==='apppass'){
+          if(allData.apppass)localStorage.setItem('tdb_apppass',allData.apppass);
+          else localStorage.removeItem('tdb_apppass');
+          return;
+        }
         localStorage.setItem('tdb_'+k,JSON.stringify(allData[k]));
       });
       // تحميل الأقسام الديناميكية في DB
@@ -110,7 +116,11 @@ window.startRealtimeSync=function(){
     try{
       const allData=JSON.parse(snap.data().value);
       Object.keys(allData).forEach(k=>{
-        if(k==='apppass')return;
+        if(k==='apppass'){
+          if(allData.apppass)localStorage.setItem('tdb_apppass',allData.apppass);
+          else localStorage.removeItem('tdb_apppass');
+          return;
+        }
         localStorage.setItem('tdb_'+k,JSON.stringify(allData[k]));
       });
       // تحديث DB في الذاكرة
@@ -793,7 +803,7 @@ function renderDepts(c){
       </div>
       <div style="display:flex;gap:10px;align-items:center">
         <button onclick="renameDept('${k}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:16px;cursor:pointer;padding:7px 11px;min-width:38px">✏️</button>
-        ${k!=='gen'&&k!=='net'?`<button onclick="if(confirm('حذف القسم؟'))deleteDept('${k}')" style="background:rgba(245,87,108,.12);border:1px solid var(--red);border-radius:8px;color:var(--red);font-size:16px;cursor:pointer;padding:7px 11px;min-width:38px">🗑️</button>`:''}
+        ${k!=='gen'&&k!=='net'?`<button onclick="customConfirm('حذف القسم؟',()=>deleteDept('${k}'))" style="background:rgba(245,87,108,.12);border:1px solid var(--red);border-radius:8px;color:var(--red);font-size:16px;cursor:pointer;padding:7px 11px;min-width:38px">🗑️</button>`:''}
         <div onclick="openPage('dept-${k}')" style="font-size:22px;color:var(--text2);cursor:pointer">‹</div>
       </div>
     </div>`).join('')}
@@ -840,7 +850,7 @@ function renameDept(key){
     </div>
     ${getDeptEmojiHtml(curIcon)}`,
   ()=>{
-    const name=gv('dn-name');if(!name){alert('أدخل اسم القسم');return;}
+    const name=gv('dn-name');if(!name){customAlert('أدخل اسم القسم');return;}
     DB.deptNames[key]=name;
     const newIcon=document.getElementById('dn-icon').value||curIcon;
     DB.deptIcons[key]=newIcon;
@@ -868,7 +878,7 @@ function addNewDept(){
     </div>
     ${getDeptEmojiHtml('')}`,
   ()=>{
-    const name=gv('dn-name');if(!name){alert('أدخل اسم القسم');return;}
+    const name=gv('dn-name');if(!name){customAlert('أدخل اسم القسم');return;}
     const key='dept_'+Date.now();
     if(!DB.deptNames)DB.deptNames={gen:'قسم العام',net:'قسم الشبكات'};
     if(!DB.deptIcons)DB.deptIcons={};
@@ -885,12 +895,13 @@ function addNewDept(){
 }
 
 function deleteDept(key){
-  if(!confirm('حذف القسم وكل مقرراته؟'))return;
-  delete DB.deptNames[key];
-  delete DB[key];
-  sv('deptNames',DB.deptNames);
-  localStorage.removeItem('tdb_'+key);
-  renderPage('depts');
+  customConfirm('حذف القسم وكل مقرراته؟',()=>{
+    delete DB.deptNames[key];
+    delete DB[key];
+    sv('deptNames',DB.deptNames);
+    localStorage.removeItem('tdb_'+key);
+    renderPage('depts');
+  });
 }
 
 // ══ DEPT TABLE ══
@@ -959,11 +970,26 @@ function filterDeptTable(val){
 function addDeptRow(key){
   openModal('➕ إضافة مقرر',deptForm({}),()=>{
     const newRow={id:Date.now(),name:gv('dr-name'),code:gv('dr-code'),units:gv('dr-units')||3,pre:gv('dr-pre')||'—',next:gv('dr-next')||'—'};
-    if(!newRow.name||!newRow.name.trim()){alert('❌ اسم المقرر مطلوب');return;}
-    // تحقق إذا المقرر موجود في أقسام أخرى
+    if(!newRow.name||!newRow.name.trim()){customAlert('❌ اسم المقرر مطلوب');return;}
+    // تحقق من عدم تكرار اسم المقرر أو رمزه في نفس القسم
+    const dupName=(DB[key]||[]).some(r=>r.name&&r.name.trim()===newRow.name.trim());
+    if(dupName){customAlert('❌ يوجد مقرر بنفس الاسم في هذا القسم');return;}
+    if(newRow.code&&newRow.code.trim()){
+      const dupCode=(DB[key]||[]).some(r=>r.code&&r.code.trim().toLowerCase()===newRow.code.trim().toLowerCase());
+      if(dupCode){customAlert('❌ يوجد مقرر بنفس الرمز في هذا القسم');return;}
+    }
+    // تحقق إذا المقرر موجود في أقسام أخرى (بالاسم أو الرمز)
     const existsInOtherDept=findCourseInDepts(newRow.name);
     if(existsInOtherDept&&existsInOtherDept.deptKey!==key){
-      if(!confirm('⚠️ هذا المقرر موجود في '+existsInOtherDept.deptName+'\nهل تريد إضافته هنا أيضاً؟'))return;
+      customAlert('❌ هذا المقرر موجود مسبقاً في '+existsInOtherDept.deptName+'\nلا يمكن إضافته في أكثر من قسم');
+      return;
+    }
+    if(newRow.code&&newRow.code.trim()){
+      const codeInOtherDept=findCourseByCodeInDepts(newRow.code);
+      if(codeInOtherDept&&codeInOtherDept.deptKey!==key){
+        customAlert('❌ رمز المقرر "'+newRow.code+'" مستخدم مسبقاً في '+codeInOtherDept.deptName+' ('+codeInOtherDept.name+')');
+        return;
+      }
     }
     DB[key].push(newRow);
     sv(key,DB[key]);closeModal();window._deptRender&&window._deptRender();
@@ -973,15 +999,38 @@ function addDeptRow(key){
 function editDeptRow(key,i){
   const r=DB[key][i];
   openModal('✏️ تعديل مقرر',deptForm(r),()=>{
-    DB[key][i]={...r,name:gv('dr-name'),code:gv('dr-code'),units:gv('dr-units'),pre:gv('dr-pre')||'—',next:gv('dr-next')||'—'};
+    const newName=gv('dr-name');
+    const newCode=gv('dr-code');
+    if(!newName||!newName.trim()){customAlert('❌ اسم المقرر مطلوب');return;}
+    const dupName=(DB[key]||[]).some((x,xi)=>xi!==i&&x.name&&x.name.trim()===newName.trim());
+    if(dupName){customAlert('❌ يوجد مقرر بنفس الاسم في هذا القسم');return;}
+    if(newCode&&newCode.trim()){
+      const dupCode=(DB[key]||[]).some((x,xi)=>xi!==i&&x.code&&x.code.trim().toLowerCase()===newCode.trim().toLowerCase());
+      if(dupCode){customAlert('❌ يوجد مقرر بنفس الرمز في هذا القسم');return;}
+    }
+    if(newName.trim()!==(r.name||'').trim()){
+      const existsInOtherDept=findCourseInDepts(newName);
+      if(existsInOtherDept&&existsInOtherDept.deptKey!==key){
+        customAlert('❌ هذا المقرر موجود مسبقاً في '+existsInOtherDept.deptName+'\nلا يمكن إضافته في أكثر من قسم');
+        return;
+      }
+    }
+    if(newCode&&newCode.trim()&&newCode.trim().toLowerCase()!==(r.code||'').trim().toLowerCase()){
+      const codeInOtherDept=findCourseByCodeInDepts(newCode);
+      if(codeInOtherDept&&codeInOtherDept.deptKey!==key){
+        customAlert('❌ رمز المقرر "'+newCode+'" مستخدم مسبقاً في '+codeInOtherDept.deptName+' ('+codeInOtherDept.name+')');
+        return;
+      }
+    }
+    DB[key][i]={...r,name:newName,code:newCode,units:gv('dr-units'),pre:gv('dr-pre')||'—',next:gv('dr-next')||'—'};
     sv(key,DB[key]);closeModal();window._deptRender&&window._deptRender();
     const cc=document.getElementById('dept-course-count');if(cc)cc.textContent=DB[key].length+' مقرر';
   });
 }
-function delDeptRow(key,i){if(!confirm('حذف؟'))return;DB[key].splice(i,1);sv(key,DB[key]);
+function delDeptRow(key,i){customConfirm('حذف؟',()=>{DB[key].splice(i,1);sv(key,DB[key]);
   window._deptRender&&window._deptRender();
   const c=document.getElementById('dept-course-count');if(c)c.textContent=DB[key].length+' مقرر';
-}
+});}
 function deptForm(r){return`<div class="fr"><div class="fg"><label class="fl">اسم المقرر</label><input class="fi" id="dr-name" value="${r.name||''}"></div><div class="fg"><label class="fl">الرمز</label><input class="fi" id="dr-code" value="${r.code||''}"></div></div><div class="fr"><div class="fg"><label class="fl">الوحدات</label><input class="fi" id="dr-units" type="number" value="${r.units||3}"></div><div class="fg"><label class="fl">المقرر السابق</label><input class="fi" id="dr-pre" value="${r.pre||''}"></div></div><div class="fg"><label class="fl">المقرر القادم</label><input class="fi" id="dr-next" value="${r.next||''}"></div>`;}
 
 // ══ COMPLETED ══
@@ -993,20 +1042,20 @@ function renderCompleted(c){
     const semOrder={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
     const sorted=[...DB.completed].sort((a,b)=>(semOrder[a.semNum]||99)-(semOrder[b.semNum]||99));
     document.getElementById('comp-tbody').innerHTML=sorted.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);transition:background .1s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-      <td style="padding:10px 12px;text-align:center;color:var(--text2);font-size:12px;font-weight:700">${i+1}</td>
-      <td style="padding:10px 12px"><b>${r.name}</b></td>
-      <td style="padding:10px 12px;color:var(--text2);font-size:12px">${r.code}</td>
-      <td style="padding:10px 12px;text-align:center"><span class="badge ${gradeBC(r.grade)}">${r.grade!==null&&r.grade!==undefined?r.grade:'—'}</span></td>
-      <td style="padding:10px 12px;text-align:center;color:var(--text2)">${r.units}</td>
-      <td style="padding:10px 12px;color:var(--text2);font-size:12px">${r.sem||'—'}</td>
-      <td style="padding:10px 12px;text-align:center;color:var(--text2);font-size:12px">${r.semNum||'—'}</td>
-      <td style="padding:10px 12px;text-align:center"><span class="badge ${r.dept==='عام'?'bb':'bp'}">${r.dept}</span></td>
-      <td style="padding:10px 12px;text-align:center"><span class="badge ${gradeBC(r.grade)}">${gradeLabel(r.grade)}</span></td>
-      <td style="padding:10px 12px;font-size:11px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.note||''}">${r.note||'—'}</td>
-      <td style="padding:10px 12px">
-        <div style="display:flex;gap:4px">
-          <button class="btn btn-ghost btn-sm" onclick="editCompleted(${r.id})">✏️</button>
-          <button class="btn btn-sm" style="background:rgba(245,87,108,.15);color:var(--red);border:1px solid var(--border)" onclick="delCompleted(${r.id})">🗑️</button>
+      <td style="padding:14px 12px;text-align:center;color:var(--text2);font-size:14px;font-weight:700">${i+1}</td>
+      <td style="padding:14px 12px;font-size:15px"><b>${r.name}</b></td>
+      <td style="padding:14px 12px;color:var(--text2);font-size:14px">${r.code}</td>
+      <td style="padding:14px 12px;text-align:center"><span class="badge ${gradeBC(r.grade)}" style="font-size:14px">${r.grade!==null&&r.grade!==undefined?r.grade:'—'}</span></td>
+      <td style="padding:14px 12px;text-align:center;color:var(--text2);font-size:14px">${r.units}</td>
+      <td style="padding:14px 12px;color:var(--text2);font-size:14px">${r.sem||'—'}</td>
+      <td style="padding:14px 12px;text-align:center;color:var(--text2);font-size:14px">${r.semNum||'—'}</td>
+      <td style="padding:14px 12px;text-align:center"><span class="badge ${r.dept==='عام'?'bb':'bp'}" style="font-size:14px">${r.dept}</span></td>
+      <td style="padding:14px 12px;text-align:center"><span class="badge ${gradeBC(r.grade)}" style="font-size:14px">${gradeLabel(r.grade)}</span></td>
+      <td style="padding:14px 12px;font-size:13px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.note||''}">${r.note||'—'}</td>
+      <td style="padding:14px 12px">
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" style="font-size:15px" onclick="editCompleted(${r.id})">✏️</button>
+          <button class="btn btn-sm" style="background:rgba(245,87,108,.15);color:var(--red);border:1px solid var(--border);font-size:15px" onclick="delCompleted(${r.id})">🗑️</button>
         </div>
       </td>
     </tr>`).join('');
@@ -1026,19 +1075,19 @@ function renderCompleted(c){
       <span style="font-size:12px;color:var(--text2);margin-right:auto">${DB.completed.length} مقرر</span>
     </div>
     <div style="overflow:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <table style="width:100%;border-collapse:collapse;font-size:15px">
       <thead><tr style="background:var(--surface);border-bottom:2px solid var(--accent)">
-        <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700;width:36px">#</th>
-        <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700">اسم المقرر</th>
-        <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700">الرمز</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">الدرجة</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">الوحدات</th>
-        <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700">وقت الفصل</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">رقم الفصل</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">القسم</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--text2);font-size:11px;font-weight:700">التقدير</th>
-        <th style="padding:10px 12px;text-align:right;color:var(--text2);font-size:11px;font-weight:700">ملاحظة</th>
-        <th style="padding:10px 12px;width:90px"></th>
+        <th style="padding:14px 12px;text-align:right;color:var(--text2);font-size:13px;font-weight:700;width:36px">#</th>
+        <th style="padding:14px 12px;text-align:right;color:var(--text2);font-size:13px;font-weight:700">اسم المقرر</th>
+        <th style="padding:14px 12px;text-align:right;color:var(--text2);font-size:13px;font-weight:700">الرمز</th>
+        <th style="padding:14px 12px;text-align:center;color:var(--text2);font-size:13px;font-weight:700">الدرجة</th>
+        <th style="padding:14px 12px;text-align:center;color:var(--text2);font-size:13px;font-weight:700">الوحدات</th>
+        <th style="padding:14px 12px;text-align:right;color:var(--text2);font-size:13px;font-weight:700">وقت الفصل</th>
+        <th style="padding:14px 12px;text-align:center;color:var(--text2);font-size:13px;font-weight:700">رقم الفصل</th>
+        <th style="padding:14px 12px;text-align:center;color:var(--text2);font-size:13px;font-weight:700">القسم</th>
+        <th style="padding:14px 12px;text-align:center;color:var(--text2);font-size:13px;font-weight:700">التقدير</th>
+        <th style="padding:14px 12px;text-align:right;color:var(--text2);font-size:13px;font-weight:700">ملاحظة</th>
+        <th style="padding:14px 12px;width:90px"></th>
       </tr></thead>
       <tbody id="comp-tbody"></tbody>
     </table></div>`;
@@ -1162,57 +1211,163 @@ function cfPk(e,name,code,units){
   });
   if(de&&foundDept)de.value=foundDept;
 }
+function customAlert(message,title){
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=`
+    <div style="background:var(--surface);border-radius:16px;max-width:340px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid var(--border)">
+      ${title?`<div style="padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border)">
+        <span style="font-size:16px;font-weight:800;color:var(--text)">${title}</span>
+      </div>`:''}
+      <div style="padding:20px 16px;text-align:right;font-size:15px;color:var(--text);line-height:1.7;white-space:pre-line">${String(message)}</div>
+      <div style="padding:0 16px 16px">
+        <button id="c-alert-ok" style="width:100%;background:#c4703a;border:none;border-radius:12px;color:#fff;padding:13px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit">حسنًا</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const close=()=>modal.remove();
+  modal.querySelector('#c-alert-ok').onclick=close;
+  modal.addEventListener('click',e=>{if(e.target===modal)close();});
+}
+
+function customConfirm(message,onConfirm,onCancel){
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=`
+    <div style="background:var(--surface);border-radius:16px;max-width:340px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid var(--border)">
+      <div style="padding:20px 16px;text-align:right;font-size:15px;color:var(--text);line-height:1.7;white-space:pre-line">${String(message)}</div>
+      <div style="padding:0 16px 16px;display:flex;gap:8px">
+        <button id="c-conf-ok" style="flex:1;background:#c4703a;border:none;border-radius:12px;color:#fff;padding:13px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">حسنًا</button>
+        <button id="c-conf-cancel" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;color:var(--text2);padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">إلغاء</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const close=()=>modal.remove();
+  modal.querySelector('#c-conf-ok').onclick=()=>{close();onConfirm&&onConfirm();};
+  modal.querySelector('#c-conf-cancel').onclick=()=>{close();onCancel&&onCancel();};
+  modal.addEventListener('click',e=>{if(e.target===modal){close();onCancel&&onCancel();}});
+}
+
+function showSaveErrorsModal(errors,onAutoFix){
+  const items=errors.map(e=>{
+    const clean=e.replace('⚠️ ','').replace('❌ ','');
+    const parts=clean.split(' - ');
+    return{title:parts[0],detail:parts[1]||''};
+  });
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=`
+    <div style="background:var(--surface);border-radius:16px;max-width:360px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border)">
+        <span style="font-size:16px;font-weight:800;color:var(--text)">تفاصيل الحفظ</span>
+        <button id="save-err-close" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;line-height:1">✕</button>
+      </div>
+      <div>
+        ${items.map(it=>`
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border);text-align:right">
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${it.title}</div>
+          ${it.detail?`<div style="font-size:13px;color:var(--text2);margin-top:2px">${it.detail}</div>`:''}
+        </div>`).join('')}
+      </div>
+      <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+        <button id="save-err-ok" style="width:100%;background:#c4703a;border:none;border-radius:12px;color:#fff;padding:13px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit">حسنًا</button>
+        ${onAutoFix?`<button id="save-err-autofix" style="width:100%;background:var(--accent);border:none;border-radius:12px;color:#fff;padding:13px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">🔧 تعديل تلقائي وحفظ</button>`:''}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const close=()=>modal.remove();
+  modal.querySelector('#save-err-close').onclick=close;
+  modal.querySelector('#save-err-ok').onclick=close;
+  if(onAutoFix){
+    modal.querySelector('#save-err-autofix').onclick=()=>{close();onAutoFix();};
+  }
+  modal.addEventListener('click',e=>{if(e.target===modal)close();});
+}
+
 function addCompleted(){openModal('➕ إضافة مقرر مكتمل',completedForm({}),()=>{
   const gradeVal=gv('cf-grade').trim();
   const grade=gradeVal===''?null:parseInt(gradeVal);
-  if(grade!==null&&grade<50){alert('❌ لا يمكن إضافة مقرر بدرجة أقل من 50');return;}
+  if(grade!==null&&grade<50){customAlert('❌ لا يمكن إضافة مقرر بدرجة أقل من 50');return;}
   const newName=gv('cf-name').trim();
   const duplicate=DB.completed.some(x=>x.name.trim()===newName);
-  if(duplicate){alert('❌ هذا المقرر موجود مسبقاً');return;}
+  if(duplicate){customAlert('❌ هذا المقرر موجود مسبقاً');return;}
   const newItem={id:Date.now(),name:newName,code:gv('cf-code'),grade:grade,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''};
   // تحقق من صحة البيانات لو المقرر موجود في الأقسام
   const {course:ac,errors:ae}=validateCompletedRow(newItem);
-  if(ae.length>0&&ac){alert('❌ لا يمكن الحفظ:\n'+ae.join('\n'));return;}
-  if(!ac&&newItem.name&&newItem.name.trim()){
-    if(!confirm('⚠️ المقرر "'+newItem.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+  if(ae.length>0&&ac){
+    showSaveErrorsModal(ae,()=>{
+      newItem.code=ac.code;newItem.units=ac.units;
+      newItem.dept=(ac.deptName||'').replace('قسم ','').replace('قسم','').trim();
+      DB.completed.push(newItem);
+      sv('completed',DB.completed);
+      syncCompletedToSemester(newItem,null);
+      closeModal();window._compRender&&window._compRender();
+    });return;
   }
-  DB.completed.push(newItem);
-  sv('completed',DB.completed);
-  syncCompletedToSemester(newItem,null);
-  closeModal();window._compRender&&window._compRender();
+  const finishAddCompleted=()=>{
+    DB.completed.push(newItem);
+    sv('completed',DB.completed);
+    syncCompletedToSemester(newItem,null);
+    closeModal();window._compRender&&window._compRender();
+  };
+  if(!ac&&newItem.name&&newItem.name.trim()){
+    customConfirm('⚠️ المقرر "'+newItem.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟',finishAddCompleted);
+    return;
+  }
+  finishAddCompleted();
 });}
 function editCompleted(id){const i=DB.completed.findIndex(x=>x.id===id);if(i<0)return;const r=DB.completed[i];openModal('✏️ تعديل مقرر مكتمل',completedForm(r),()=>{
   const gradeVal=gv('cf-grade').trim();
   const newGrade=gradeVal===''?null:parseInt(gradeVal);
-  if(newGrade!==null&&newGrade<50){alert('❌ لا يمكن حفظ مقرر بدرجة أقل من 50');return;}
+  if(newGrade!==null&&newGrade<50){customAlert('❌ لا يمكن حفظ مقرر بدرجة أقل من 50');return;}
   const oldSemNum=r.semNum;
   const oldName=r.name;
   const newName=gv('cf-name');
   // تحقق من عدم التكرار
   const duplicate=DB.completed.some((x,xi)=>xi!==i&&x.name.trim()===newName.trim());
-  if(duplicate){alert('❌ هذا المقرر موجود مسبقاً');return;}
+  if(duplicate){customAlert('❌ هذا المقرر موجود مسبقاً');return;}
   const updated={...r,name:newName,code:gv('cf-code'),grade:newGrade,units:parseInt(gv('cf-units'))||3,sem:gv('cf-sem'),semNum:gv('cf-semnum'),dept:gv('cf-dept'),note:(document.getElementById('cf-note')||{}).value||''};
   // تحقق من صحة البيانات لو المقرر موجود في الأقسام
   const {course:ec,errors:ee}=validateCompletedRow(updated);
-  if(ee.length>0&&ec){alert('❌ لا يمكن الحفظ:\n'+ee.join('\n'));return;}
+  if(ee.length>0&&ec){
+    showSaveErrorsModal(ee,()=>{
+      updated.code=ec.code;updated.units=ec.units;
+      updated.dept=(ec.deptName||'').replace('قسم ','').replace('قسم','').trim();
+      const semOrder2={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
+      const oldIdx2=semOrder2[oldSemNum];
+      if(oldIdx2&&DB.semesters[oldIdx2]){
+        const ri2=DB.semesters[oldIdx2].rows.findIndex(x=>x.name===oldName);
+        if(ri2>=0)DB.semesters[oldIdx2].rows[ri2].name=newName;
+        sv('semesters',DB.semesters);
+      }
+      DB.completed[i]=updated;
+      sv('completed',DB.completed);
+      syncCompletedToSemester(updated,oldSemNum);
+      closeModal();window._compRender&&window._compRender();
+    });return;
+  }
+  const finishEditCompleted=()=>{
+    // تحديث الاسم في الفصول إذا تغير
+    const semOrder={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
+    const oldIdx=semOrder[oldSemNum];
+    if(oldIdx&&DB.semesters[oldIdx]){
+      const ri=DB.semesters[oldIdx].rows.findIndex(x=>x.name===oldName);
+      if(ri>=0)DB.semesters[oldIdx].rows[ri].name=newName;
+      sv('semesters',DB.semesters);
+    }
+    DB.completed[i]=updated;
+    sv('completed',DB.completed);
+    syncCompletedToSemester(updated,oldSemNum);
+    closeModal();window._compRender&&window._compRender();
+  };
   if(!ec&&updated.name&&updated.name.trim()){
-    if(!confirm('⚠️ المقرر "'+updated.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+    customConfirm('⚠️ المقرر "'+updated.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟',finishEditCompleted);
+    return;
   }
-  // تحديث الاسم في الفصول إذا تغير
-  const semOrder={'الأول':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10};
-  const oldIdx=semOrder[oldSemNum];
-  if(oldIdx&&DB.semesters[oldIdx]){
-    const ri=DB.semesters[oldIdx].rows.findIndex(x=>x.name===oldName);
-    if(ri>=0)DB.semesters[oldIdx].rows[ri].name=newName;
-    sv('semesters',DB.semesters);
-  }
-  DB.completed[i]=updated;
-  sv('completed',DB.completed);
-  syncCompletedToSemester(updated,oldSemNum);
-  closeModal();window._compRender&&window._compRender();
+  finishEditCompleted();
 });}
 function delCompleted(id){
-  if(!confirm('حذف؟'))return;
+  customConfirm('حذف؟',()=>{
   const i=DB.completed.findIndex(x=>x.id===id);
   if(i>=0){
     const item=DB.completed[i];
@@ -1227,9 +1382,8 @@ function delCompleted(id){
     sv('completed',DB.completed);
     window._compRender&&window._compRender();
   }
+  });
 }
-
-// ══ TIMETABLE ══
 const DAYS=['السبت','الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة'];
 const TIMES=[8,10,12,14];
 function renderTimetable(c){
@@ -1278,8 +1432,9 @@ function addSlot(){
     ()=>{const d=gv('sl-day'),t=parseInt(gv('sl-time')),sn=gv('sl-name');
     if(!DB.timetable[d])DB.timetable[d]={};
     const sc=findCourseInDepts(sn);
-    if(sn&&!sc){if(!confirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
-    DB.timetable[d][t]={name:sn,room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();}
+    const finishAddSlot=()=>{DB.timetable[d][t]={name:sn,room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();};
+    if(sn&&!sc){customConfirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟',finishAddSlot);return;}
+    finishAddSlot();}
   );
 }
 function addSlotAt(day,time){
@@ -1287,21 +1442,27 @@ function addSlotAt(day,time){
     const sn=gv('sl-name');
     if(!DB.timetable[day])DB.timetable[day]={};
     const sc=findCourseInDepts(sn);
-    if(sn&&!sc){if(!confirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
-    DB.timetable[day][time]={name:sn,room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();
+    const finishAddSlotAt=()=>{DB.timetable[day][time]={name:sn,room:gv('sl-room')};sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();};
+    if(sn&&!sc){customConfirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟',finishAddSlotAt);return;}
+    finishAddSlotAt();
   });
 }
 function editSlot(day,time){
   const slot=DB.timetable[day]&&DB.timetable[day][time];
   openModal(`✏️ ${day} ${time}:00`,slotForm(slot),()=>{
     const sn=gv('sl-name');
+    const finishEditSlot=()=>{
+      if(sn){
+        DB.timetable[day][time]={name:sn,room:gv('sl-room')};
+      }
+      else{DB.timetable[day][time]=null;}
+      sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();
+    };
     if(sn){
       const sc=findCourseInDepts(sn);
-      if(!sc){if(!confirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
-      DB.timetable[day][time]={name:sn,room:gv('sl-room')};
+      if(!sc){customConfirm('⚠️ المقرر "'+sn+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟',finishEditSlot);return;}
     }
-    else{DB.timetable[day][time]=null;}
-    sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();
+    finishEditSlot();
   },true,'🗑️ حذف',()=>{DB.timetable[day][time]=null;sv('timetable',DB.timetable);closeModal();window._ttRender&&window._ttRender();});
 }
 
@@ -1443,18 +1604,20 @@ function getExam(){return{name:gv('ex-name'),mid:{date:fmtDate(gv('ex-md')),day:
 function addExam(){openModal('➕ إضافة امتحان',examForm(null),()=>{
   const ex=getExam();
   const ec=findCourseInDepts(ex.name);
-  if(ex.name&&!ec){if(!confirm('⚠️ المقرر "'+ex.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
-  DB.exams.push({id:Date.now(),...ex});sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();
+  const finishAddExam=()=>{DB.exams.push({id:Date.now(),...ex});sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();};
+  if(ex.name&&!ec){customConfirm('⚠️ المقرر "'+ex.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟',finishAddExam);return;}
+  finishAddExam();
 });
 }
 function editExam(i){const e=DB.exams[i];openModal('✏️ تعديل امتحان',examForm(e),()=>{
   const ex=getExam();
   const ec=findCourseInDepts(ex.name);
-  if(ex.name&&!ec){if(!confirm('⚠️ المقرر "'+ex.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟'))return;}
-  DB.exams[i]={...e,...ex};sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();
+  const finishEditExam=()=>{DB.exams[i]={...e,...ex};sv('exams',DB.exams);closeModal();window._examsRender&&window._examsRender();};
+  if(ex.name&&!ec){customConfirm('⚠️ المقرر "'+ex.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار؟',finishEditExam);return;}
+  finishEditExam();
 });
 }
-function delExam(i){if(!confirm('حذف؟'))return;DB.exams.splice(i,1);sv('exams',DB.exams);window._examsRender&&window._examsRender();}
+function delExam(i){customConfirm('حذف؟',()=>{DB.exams.splice(i,1);sv('exams',DB.exams);window._examsRender&&window._examsRender();});}
 
 // ══ PLAN ══
 function getAutoStatus(startStr,endStr){
@@ -1546,7 +1709,7 @@ function planForm(p){
   </div>`;}
 function addPlan(){openModal('➕ إضافة',planForm(null),()=>{const fi=window._fromISO||((s)=>s);DB.plan.push({id:Date.now(),name:gv('pl-name'),start:fi(gv('pl-start')),end:fi(gv('pl-end')),status:gv('pl-status')});sv('plan',DB.plan);closeModal();window._planRender&&window._planRender();});}
 function editPlan(i){const p=DB.plan[i];openModal('✏️ تعديل',planForm(p),()=>{const fi=window._fromISO||((s)=>s);DB.plan[i]={...p,name:gv('pl-name'),start:fi(gv('pl-start')),end:fi(gv('pl-end')),status:gv('pl-status')};sv('plan',DB.plan);closeModal();window._planRender&&window._planRender();});}
-function delPlan(i){if(!confirm('حذف؟'))return;DB.plan.splice(i,1);sv('plan',DB.plan);window._planRender&&window._planRender();}
+function delPlan(i){customConfirm('حذف؟',()=>{DB.plan.splice(i,1);sv('plan',DB.plan);window._planRender&&window._planRender();});}
 
 // ══ SEMESTERS ══
 const SEM_NAMES_BASE={1:'الفصل الأول',2:'الفصل الثاني',3:'الفصل الثالث',4:'الفصل الرابع',5:'الفصل الخامس',6:'الفصل السادس',7:'الفصل السابع',8:'الفصل الثامن',9:'الفصل التاسع',10:'الفصل العاشر',11:'الفصل الحادي عشر',12:'الفصل الثاني عشر',13:'الفصل الثالث عشر',14:'الفصل الرابع عشر',15:'الفصل الخامس عشر',16:'الفصل السادس عشر',17:'الفصل السابع عشر',18:'الفصل الثامن عشر',19:'الفصل التاسع عشر',20:'الفصل العشرون'};
@@ -1564,14 +1727,14 @@ function renderSemesters(c){
     ${Array.from({length:count},(_,i)=>i+1).map(n=>`
       <div style="background:rgba(108,99,255,0.08);border:2px solid rgba(108,99,255,0.4);border-radius:16px;padding:14px 12px;text-align:center;transition:all .15s;position:relative">
         <div onclick="openSemDetail(${n})" style="font-size:16px;font-weight:900;color:#ffffff;cursor:pointer;padding-bottom:6px">${getSemName(n)}</div>
-        <button onclick="if(confirm('حذف '+getSemName(${n})+'؟'))removeSemester(${n})" style="position:absolute;top:6px;left:6px;background:rgba(245,87,108,.2);border:1px solid var(--red);border-radius:6px;color:var(--red);width:28px;height:28px;font-size:14px;cursor:pointer" title="حذف الفصل">🗑️</button>
+        <button onclick="customConfirm('حذف '+getSemName(${n})+'؟',()=>removeSemester(${n}))" style="position:absolute;top:6px;left:6px;background:rgba(245,87,108,.2);border:1px solid var(--red);border-radius:6px;color:var(--red);width:28px;height:28px;font-size:14px;cursor:pointer" title="حذف الفصل">🗑️</button>
       </div>`).join('')}
   </div>`;
 }
 
 function addSemester(){
   if(!DB.semCount)DB.semCount=10;
-  if(DB.semCount>=20){alert('الحد الأقصى 20 فصل');return;}
+  if(DB.semCount>=20){customAlert('الحد الأقصى 20 فصل');return;}
   DB.semCount++;
   sv('semCount',DB.semCount);
   updateHomeCards();
@@ -1581,15 +1744,18 @@ function addSemester(){
 function removeSemester(n){
   if(!DB.semCount)DB.semCount=10;
   const hasDat=DB.semesters[n]&&DB.semesters[n].rows&&DB.semesters[n].rows.length;
-  if(hasDat&&!confirm(`${SEM_NAMES[n]} فيه بيانات، هل تريد حذفه؟`))return;
-  // إزاحة الفصول للأسفل
-  for(let i=n;i<DB.semCount;i++){DB.semesters[i]=DB.semesters[i+1]||{rows:[]};}
-  delete DB.semesters[DB.semCount];
-  DB.semCount--;
-  sv('semCount',DB.semCount);
-  sv('semesters',DB.semesters);
-  updateHomeCards();
-  renderPage('semesters');
+  const finishRemoveSemester=()=>{
+    // إزاحة الفصول للأسفل
+    for(let i=n;i<DB.semCount;i++){DB.semesters[i]=DB.semesters[i+1]||{rows:[]};}
+    delete DB.semesters[DB.semCount];
+    DB.semCount--;
+    sv('semCount',DB.semCount);
+    sv('semesters',DB.semesters);
+    updateHomeCards();
+    renderPage('semesters');
+  };
+  if(hasDat){customConfirm(`${SEM_NAMES[n]} فيه بيانات، هل تريد حذفه؟`,finishRemoveSemester);return;}
+  finishRemoveSemester();
 }
 
 function calcSemAvg(n){
@@ -1611,32 +1777,31 @@ function openSemDetail(n){
   const semTime=DB.semesters[n]&&DB.semesters[n].time||'';
   const gc=g=>g>=85?'var(--green)':g>=75?'var(--blue)':g>=65?'var(--yellow)':g>=50?'var(--accent)':'var(--red)';
   c.innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:8px">
-      <span style="font-size:12px;color:var(--text2);flex-shrink:0">وقت الفصل:</span>
-      <span style="font-size:13px;font-weight:700;color:${color}">${semTime||'—'}</span>
-      <button onclick="editSemTime()" style="margin-right:auto;background:none;border:none;color:var(--text2);cursor:pointer;font-size:13px">✏️</button>
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:10px">
+      <span style="font-size:15px;color:var(--text2);flex-shrink:0">وقت الفصل:</span>
+      <span style="font-size:16px;font-weight:700;color:${color}">${semTime||'—'}</span>
+      <button onclick="editSemTime()" style="margin-right:auto;background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px">✏️</button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px" id="sem-stats-row">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center">
-        <div style="font-size:18px;font-weight:900;color:${color}" id="s-units">0</div>
-        <div style="font-size:10px;color:var(--text2)">وحدات</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px" id="sem-stats-row">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center">
+        <div style="font-size:23px;font-weight:900;color:${color}" id="s-units">0</div>
+        <div style="font-size:13px;color:var(--text2)">وحدات</div>
       </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center">
-        <div style="font-size:18px;font-weight:900;color:var(--accent2)" id="s-cum">0</div>
-        <div style="font-size:10px;color:var(--text2)">التراكمي</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center">
+        <div style="font-size:23px;font-weight:900;color:var(--accent2)" id="s-cum">0</div>
+        <div style="font-size:13px;color:var(--text2)">التراكمي</div>
       </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center">
-        <div style="font-size:18px;font-weight:900;color:var(--yellow)" id="s-avg">0.00</div>
-        <div style="font-size:10px;color:var(--text2)">معدل الفصل</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center">
+        <div style="font-size:23px;font-weight:900;color:var(--yellow)" id="s-avg">0.00</div>
+        <div style="font-size:13px;color:var(--text2)">معدل الفصل</div>
       </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center">
-        <div style="font-size:18px;font-weight:900;color:var(--green)" id="s-gen">0.00</div>
-        <div style="font-size:10px;color:var(--text2)">معدل العام</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center">
+        <div style="font-size:23px;font-weight:900;color:var(--green)" id="s-gen">0.00</div>
+        <div style="font-size:13px;color:var(--text2)">معدل العام</div>
       </div>
     </div>
     <button onclick="addSemRow()" style="width:100%;background:var(--accent);border:none;border-radius:12px;color:#fff;padding:11px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">＋ إضافة مقرر</button>
-    <div id="sem-rows" style="display:flex;flex-direction:column;gap:4px"></div>
-    <button onclick="addSemRow()" style="width:100%;background:var(--surface);border:2px dashed var(--border);border-radius:12px;color:var(--text2);padding:14px;font-family:inherit;font-size:14px;cursor:pointer;margin-top:10px" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">＋ إضافة مقرر</button>`;
+    <div id="sem-rows" style="display:flex;flex-direction:column;gap:4px"></div>`;
   renderSemCards(color);
   calcSemStats();
 }
@@ -1645,40 +1810,50 @@ function renderSemCards(color){
   const rows=(DB.semesters[curSem]&&DB.semesters[curSem].rows)||[];
   const c='#a89fff';
   const gc=g=>g>=85?'var(--green)':g>=75?'var(--blue)':g>=65?'var(--yellow)':g>=50?'var(--accent)':'var(--red)';
-  document.getElementById('sem-rows').innerHTML=rows.length?rows.map((r,i)=>{
-    const t=parseFloat(r.total)||0;
-    const hasGrade=r.total!==undefined&&r.total!==null&&r.total!=='';
-    const pass=hasGrade&&t>=50;
-    return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:7px 9px">
-      <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
-        <span style="font-size:12px;font-weight:900;color:${c};background:${c}22;min-width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
-        <div style="font-size:14px;font-weight:900;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name||'—'}</div>
-        <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:10px;background:${pass?'rgba(67,233,123,.15)':'rgba(245,87,108,.15)'};color:${pass?'var(--green)':'var(--red)'};flex-shrink:0">${hasGrade?(pass?'ناجح':'راسب'):'—'}</span>
-        <button style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;font-size:13px;width:30px;height:28px;flex-shrink:0" onclick="editSemRow(${i})">✏️</button>
-        <button style="background:rgba(245,87,108,.1);border:1px solid var(--border);border-radius:6px;color:var(--red);cursor:pointer;font-size:13px;width:30px;height:28px;flex-shrink:0" onclick="delSemRow(${i})">🗑</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-bottom:4px">
-        <div style="font-size:11px;color:var(--text2)">رمز: <span style="color:var(--text);font-weight:700;font-size:13px">${r.code||'—'}</span></div>
-        <div style="font-size:11px;color:var(--text2);text-align:center">وحدات: <span style="color:${c};font-weight:700;font-size:13px">${r.units||'—'}</span></div>
-        <div style="font-size:11px;color:var(--text2);text-align:left">قسم: <span style="color:${c};font-weight:700;font-size:13px">${r.dept||'—'}</span></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:5px">
-        <div style="background:var(--surface2);border-radius:6px;padding:4px;text-align:center">
-          <div style="font-size:9px;color:var(--text2)">نصفي</div>
-          <div style="font-size:14px;font-weight:800">${r.mid||'—'}</div>
-        </div>
-        <div style="background:var(--surface2);border-radius:6px;padding:4px;text-align:center">
-          <div style="font-size:9px;color:var(--text2)">نهائي</div>
-          <div style="font-size:14px;font-weight:800">${r.fin||'—'}</div>
-        </div>
-        <div style="background:var(--surface2);border-radius:6px;padding:4px;text-align:center">
-          <div style="font-size:9px;color:var(--text2)">مجموع</div>
-          <div style="font-size:14px;font-weight:900;color:${gc(t)}">${r.total||'—'}</div>
-        </div>
-      </div>
-
-    </div>`;
-  }).join(''):'<div style="text-align:center;padding:40px;color:var(--text2)">لا توجد مقررات — أضف مقرراً</div>';
+  const gt=g=>g>=85?'ممتاز':g>=75?'جيد جداً':g>=65?'جيد':g>=50?'مقبول':'راسب';
+  if(!rows.length){
+    document.getElementById('sem-rows').innerHTML='<div style="text-align:center;padding:40px;color:var(--text2)">لا توجد مقررات — أضف مقرراً</div>';
+    return;
+  }
+  document.getElementById('sem-rows').innerHTML=`
+  <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap">
+      <thead>
+        <tr style="background:var(--surface2)">
+          <th style="padding:16px 10px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">#</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">اسم المقرر</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">الرمز</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">نصفي</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">نهائي</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">المجموع</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">الوحدات</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">القسم</th>
+          <th style="padding:16px 12px;text-align:center;color:var(--text2);font-weight:700;font-size:13px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r,i)=>{
+          const t=parseFloat(r.total)||0;
+          return`<tr style="border-top:1px solid var(--border)">
+            <td style="padding:16px 10px;text-align:center;font-weight:800;color:${c};font-size:14px">${i+1}</td>
+            <td style="padding:16px 12px;text-align:center;font-weight:700;color:var(--text);font-size:15px">${r.name||'—'}</td>
+            <td style="padding:16px 12px;text-align:center;font-weight:800;color:var(--text);font-size:15px">${r.code||'—'}</td>
+            <td style="padding:16px 12px;text-align:center;color:var(--text);font-size:15px">${r.mid||'—'}</td>
+            <td style="padding:16px 12px;text-align:center;color:var(--text);font-size:15px">${r.fin||'—'}</td>
+            <td style="padding:16px 12px;text-align:center;font-weight:900;color:${gc(t)};font-size:16px">${r.total?parseFloat(r.total).toFixed(2):'—'}</td>
+            <td style="padding:16px 12px;text-align:center;color:${c};font-weight:700;font-size:15px">${r.units||'—'}</td>
+            <td style="padding:16px 12px;text-align:center;color:${c};font-weight:700;font-size:15px">${r.dept||'—'}</td>
+            <td style="padding:16px 12px">
+              <div style="display:flex;gap:8px;justify-content:center">
+                <button style="background:rgba(245,87,108,.12);border:1px solid var(--border);border-radius:9px;color:var(--red);cursor:pointer;font-size:16px;width:38px;height:38px;flex-shrink:0" onclick="delSemRow(${i})">🗑️</button>
+                <button style="background:rgba(249,202,36,.12);border:1px solid var(--border);border-radius:9px;color:var(--yellow);cursor:pointer;font-size:16px;width:38px;height:38px;flex-shrink:0" onclick="editSemRow(${i})">✏️</button>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
 }
 
 // تغيير editSemName الى editSemTime
@@ -1860,6 +2035,17 @@ function findCourseInDepts(name){
   }
   return null;
 }
+function findCourseByCodeInDepts(code){
+  // يبحث عن مقرر بنفس الرمز في كل الأقسام، يرجع بيانات المقرر أو null
+  if(!code||!code.trim())return null;
+  const depts=DB.deptNames||{gen:'قسم العام',net:'قسم الشبكات'};
+  for(const k of Object.keys(depts)){
+    if(!DB[k]){const lv=localStorage.getItem('tdb_'+k);DB[k]=lv?JSON.parse(lv):[];}
+    const found=(DB[k]||[]).find(r=>r.code&&r.code.trim().toLowerCase()===code.trim().toLowerCase());
+    if(found)return{...found,deptKey:k,deptName:depts[k]};
+  }
+  return null;
+}
 
 function validateSemRow(r){
   // r = {name, code, units, mid, fin, total, dept}
@@ -1868,12 +2054,12 @@ function validateSemRow(r){
   if(course){
     // المقرر موجود - تحقق من الرمز والوحدات والقسم
     if(r.code&&r.code.trim()&&r.code.trim()!==course.code)
-      errors.push('⚠️ رمز المقرر خاطئ - الصحيح: '+course.code);
+      errors.push('⚠️ رمز المقرر خاطئ - الصحيح هو: '+course.code);
     if(r.units&&parseInt(r.units)!==parseInt(course.units))
-      errors.push('⚠️ الوحدات خاطئة - الصحيح: '+course.units+' وحدات');
+      errors.push('⚠️ الوحدات خاطئة - الصحيح هو: '+course.units+' وحدات');
     const correctDept=(course.deptName||'').replace('قسم ','').replace('قسم','').trim();
     if(r.dept&&r.dept.trim()&&r.dept.trim()!==correctDept)
-      errors.push('⚠️ القسم خاطئ - الصحيح: '+correctDept);
+      errors.push('⚠️ القسم خاطئ - الصحيح هو: '+correctDept);
   }
   // تحقق من المجموع لو في نصفي ونهائي
   if(r.mid!==''&&r.mid!==undefined&&r.fin!==''&&r.fin!==undefined){
@@ -1897,12 +2083,12 @@ function validateCompletedRow(r){
   const errors=[];
   if(course){
     if(r.code&&r.code.trim()&&r.code.trim()!==course.code)
-      errors.push('⚠️ رمز المقرر خاطئ - الصحيح: '+course.code);
+      errors.push('⚠️ رمز المقرر خاطئ - الصحيح هو: '+course.code);
     if(r.units&&parseInt(r.units)!==parseInt(course.units))
-      errors.push('⚠️ الوحدات خاطئة - الصحيح: '+course.units+' وحدات');
+      errors.push('⚠️ الوحدات خاطئة - الصحيح هو: '+course.units+' وحدات');
     const correctDept=(course.deptName||'').replace('قسم ','').replace('قسم','').trim();
     if(r.dept&&r.dept.trim()&&r.dept.trim()!==correctDept)
-      errors.push('⚠️ القسم خاطئ - الصحيح: '+correctDept);
+      errors.push('⚠️ القسم خاطئ - الصحيح هو: '+correctDept);
   }
   return{course,errors};
 }
@@ -1918,44 +2104,76 @@ function validateDeptRow(r,existingCourse){
 }
 
 
+function autoFixSemFields(r,course){
+  if(course){
+    r.code=course.code;
+    r.units=course.units;
+    r.dept=(course.deptName||'').replace('قسم ','').replace('قسم','').trim();
+  }
+  if(r.mid!==''&&r.mid!==undefined&&r.fin!==''&&r.fin!==undefined){
+    r.total=((parseFloat(r.mid)||0)+(parseFloat(r.fin)||0)).toFixed(1);
+  }
+  return r;
+}
+
 function addSemRow(){openModal('➕ إضافة مقرر',semRowForm(null),()=>{
   if(!DB.semesters[curSem])DB.semesters[curSem]={rows:[]};
   if(!DB.semesters[curSem].rows)DB.semesters[curSem].rows=[];
   const r=getSemRow();
-  if(DB.semesters[curSem].rows.some(function(x){return x.name===r.name;})){alert('❌ هذا المقرر موجود في هذا الفصل مسبقاً');return;}
+  if(DB.semesters[curSem].rows.some(function(x){return x.name===r.name;})){customAlert('❌ هذا المقرر موجود في هذا الفصل مسبقاً');return;}
   const isComp=(DB.completed||[]).some(function(x){return x.name&&x.name.trim()===r.name.trim();});
-  if(isComp){alert('❌ هذا المقرر موجود في المقررات المكتملة ولا يمكن إضافته');return;}
+  if(isComp){customAlert('❌ هذا المقرر موجود في المقررات المكتملة ولا يمكن إضافته');return;}
   // تحقق من صحة البيانات
   const {course,errors}=validateSemRow(r);
   if(errors.length>0&&course){
-    alert('❌ لا يمكن الحفظ:\n'+errors.join('\n'));return;
+    showSaveErrorsModal(errors,()=>{
+      autoFixSemFields(r,course);
+      DB.semesters[curSem].rows.push(r);
+      sv('semesters',DB.semesters);
+      autoSyncCompleted(r);
+      closeModal();renderSemCards();calcSemStats();
+    });return;
   }
+  const finishAddSemRow=()=>{
+    DB.semesters[curSem].rows.push(r);
+    sv('semesters',DB.semesters);
+    autoSyncCompleted(r);
+    closeModal();renderSemCards();calcSemStats();
+  };
   if(!course&&r.name&&r.name.trim()){
-    if(!confirm('⚠️ المقرر "'+r.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+    customConfirm('⚠️ المقرر "'+r.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟',finishAddSemRow);
+    return;
   }
-  DB.semesters[curSem].rows.push(r);
-  sv('semesters',DB.semesters);
-  autoSyncCompleted(r);
-  closeModal();renderSemCards();calcSemStats();
+  finishAddSemRow();
 });}
 function editSemRow(i){const r=DB.semesters[curSem].rows[i];openModal('✏️ تعديل مقرر',semRowForm(r),()=>{
   const nr={...r,...getSemRow()};
   // تحقق من صحة البيانات
   const {course,errors}=validateSemRow(nr);
   if(errors.length>0&&course){
-    alert('❌ لا يمكن الحفظ:\n'+errors.join('\n'));return;
+    showSaveErrorsModal(errors,()=>{
+      autoFixSemFields(nr,course);
+      DB.semesters[curSem].rows[i]=nr;
+      sv('semesters',DB.semesters);
+      autoSyncCompleted(nr);
+      closeModal();renderSemCards();calcSemStats();
+    });return;
   }
+  const finishEditSemRow=()=>{
+    DB.semesters[curSem].rows[i]=nr;
+    sv('semesters',DB.semesters);
+    autoSyncCompleted(nr);
+    closeModal();renderSemCards();calcSemStats();
+  };
   if(!course&&nr.name&&nr.name.trim()){
-    if(!confirm('⚠️ المقرر "'+nr.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟'))return;
+    customConfirm('⚠️ المقرر "'+nr.name+'" غير موجود في الأقسام.\nهل تريد الاستمرار في الحفظ؟',finishEditSemRow);
+    return;
   }
-  DB.semesters[curSem].rows[i]=nr;
-  sv('semesters',DB.semesters);
-  autoSyncCompleted(nr);
-  closeModal();renderSemCards();calcSemStats();
+  finishEditSemRow();
 });}
 
 function delSemRow(i){
-  if(!confirm('حذف؟'))return;
+  customConfirm('حذف؟',()=>{
   var r=DB.semesters[curSem].rows[i];
   DB.semesters[curSem].rows.splice(i,1);
   sv('semesters',DB.semesters);
@@ -1967,9 +2185,8 @@ function delSemRow(i){
     if(ei>=0){DB.completed.splice(ei,1);sv('completed',DB.completed);}
   }
   renderSemCards();calcSemStats();
+  });
 }
-
-// ══ ACADEMIC RECORD (linked to DB) ══
 function renderAcademicRecord(c){
   document.getElementById('topbar-actions').innerHTML='';
   // حساب من الفصول
@@ -2285,7 +2502,7 @@ let recognition=null,isRecording=false,_voiceTarget=null;
 function startVoice(targetId,btn){
   if(isRecording){stopVoice();return;}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){alert('⚠️ استخدم Chrome أو Edge للكتابة الصوتية');return;}
+  if(!SR){customAlert('⚠️ استخدم Chrome أو Edge للكتابة الصوتية');return;}
   recognition=new SR();
   recognition.continuous=true;
   recognition.interimResults=true;
@@ -2315,8 +2532,8 @@ function startVoice(targetId,btn){
   };
   recognition.onerror=e=>{
     stopVoice();
-    if(e.error==='not-allowed')alert('❌ اسمح للمتصفح بالوصول للميكروفون');
-    else if(e.error!=='no-speech')alert('خطأ: '+e.error);
+    if(e.error==='not-allowed')customAlert('❌ اسمح للمتصفح بالوصول للميكروفون');
+    else if(e.error!=='no-speech')customAlert('خطأ: '+e.error);
   };
   recognition.onend=()=>{
     if(isRecording){
@@ -2533,9 +2750,10 @@ function setNewPass(){
   const p=prompt('🔒 أدخل كلمة المرور الجديدة:');
   if(!p)return;
   const p2=prompt('🔒 أعد إدخال كلمة المرور للتأكيد:');
-  if(p!==p2){alert('❌ كلمتا المرور غير متطابقتان');return;}
+  if(p!==p2){customAlert('❌ كلمتا المرور غير متطابقتان');return;}
   localStorage.setItem('tdb_apppass',btoa(p));
-  alert('✅ تم تفعيل كلمة المرور بنجاح');
+  if(typeof window.saveAllToCloud==='function')window.saveAllToCloud();
+  customAlert('✅ تم تفعيل كلمة المرور بنجاح');
   renderSettings(document.getElementById('page-content'));
 }
 
@@ -2543,13 +2761,14 @@ function changePass(){
   const cur=prompt('🔑 أدخل كلمة المرور الحالية:');
   if(!cur)return;
   const stored=localStorage.getItem('tdb_apppass');
-  if(btoa(cur)!==stored){alert('❌ كلمة المرور الحالية غير صحيحة');return;}
+  if(btoa(cur)!==stored){customAlert('❌ كلمة المرور الحالية غير صحيحة');return;}
   const p=prompt('🔒 أدخل كلمة المرور الجديدة:');
   if(!p)return;
   const p2=prompt('🔒 أعد إدخال كلمة المرور الجديدة:');
-  if(p!==p2){alert('❌ كلمتا المرور غير متطابقتان');return;}
+  if(p!==p2){customAlert('❌ كلمتا المرور غير متطابقتان');return;}
   localStorage.setItem('tdb_apppass',btoa(p));
-  alert('✅ تم تغيير كلمة المرور بنجاح');
+  if(typeof window.saveAllToCloud==='function')window.saveAllToCloud();
+  customAlert('✅ تم تغيير كلمة المرور بنجاح');
   renderSettings(document.getElementById('page-content'));
 }
 
@@ -2557,11 +2776,13 @@ function removePass(){
   const cur=prompt('🔑 أدخل كلمة المرور الحالية للتأكيد:');
   if(!cur)return;
   const stored=localStorage.getItem('tdb_apppass');
-  if(btoa(cur)!==stored){alert('❌ كلمة المرور غير صحيحة');return;}
-  if(!confirm('هل تريد فعلاً إلغاء الحماية؟'))return;
-  localStorage.removeItem('tdb_apppass');
-  alert('🔓 تم إلغاء كلمة المرور');
-  renderSettings(document.getElementById('page-content'));
+  if(btoa(cur)!==stored){customAlert('❌ كلمة المرور غير صحيحة');return;}
+  customConfirm('هل تريد فعلاً إلغاء الحماية؟',()=>{
+    localStorage.removeItem('tdb_apppass');
+    if(typeof window.saveAllToCloud==='function')window.saveAllToCloud();
+    customAlert('🔓 تم إلغاء كلمة المرور');
+    renderSettings(document.getElementById('page-content'));
+  });
 }
 
 function setHomeBg(inp){
@@ -2613,7 +2834,7 @@ function removeLockBg(){
 }
 
 function clearAllData(){
-  if(!confirm('⚠️ سيتم مسح البيانات محلياً فقط من هذا الجهاز.\nالبيانات ستبقى في السحابة ويمكنك استعادتها.\nهل تريد المتابعة؟'))return;
+  customConfirm('⚠️ سيتم مسح البيانات محلياً فقط من هذا الجهاز.\nالبيانات ستبقى في السحابة ويمكنك استعادتها.\nهل تريد المتابعة؟',()=>{
   const allKeys=Object.keys(localStorage).filter(k=>k.startsWith('tdb_'));
   const backup={};
   allKeys.forEach(k=>{backup[k]=localStorage.getItem(k);});
@@ -2658,6 +2879,7 @@ function clearAllData(){
     sessionStorage.setItem('tdb_justCleared','1');
     location.reload();
   };
+  });
 }
 function exportData(){
   const keys=['profile','timetable','exams','plan','completed','gen','net','semesters','uniInfo','academicManual','documents','albums'];
@@ -2705,7 +2927,7 @@ function _downloadJSON(data){
   a.download='بياناتي_'+new Date().toLocaleDateString('ar').replace(/\//g,'-')+'.json';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  alert('✅ تم تصدير البيانات بنجاح');
+  customAlert('✅ تم تصدير البيانات بنجاح');
 }
 
 function importData(input){
@@ -2740,7 +2962,7 @@ function importData(input){
           saveMediaBlob(id,file).then(finish).catch(finish);
         }).catch(finish);
       });
-    }catch(ex){alert('❌ خطأ في الاستيراد: '+ex.message);}
+    }catch(ex){customAlert('❌ خطأ في الاستيراد: '+ex.message);}
   };
   r.readAsText(f);
 }
@@ -2759,7 +2981,7 @@ function _reloadDB(){
   DB.documents=ld('documents')||[];
   DB.albums=ld('albums')||[];
   renderHome();
-  alert('✅ تم الاستيراد بنجاح — البيانات محدّثة');
+  customAlert('✅ تم الاستيراد بنجاح — البيانات محدّثة');
 }
 function renderDocuments(c){
   window._docsSelected=new Set();
@@ -2837,7 +3059,7 @@ function toggleDocSel(i){
 
 function delSelected(){
   if(!window._docsSelected||!window._docsSelected.size)return;
-  if(!confirm(`حذف ${window._docsSelected.size} مستند؟`))return;
+  customConfirm(`حذف ${window._docsSelected.size} مستند؟`,()=>{
   const indices=[...window._docsSelected].sort((a,b)=>b-a);
   indices.forEach(i=>{
     const d=DB.documents[i];
@@ -2849,6 +3071,7 @@ function delSelected(){
   window._docsRender&&window._docsRender();
   const btn=document.getElementById('del-sel-btn-inline');
   if(btn)btn.style.display='none';
+  });
 }
 
 function openAlbumManager(forceShow){
@@ -2903,12 +3126,13 @@ function toggleAlbSel(i){
 
 function delSelectedAlbums(){
   if(!window._albSelected||!window._albSelected.size)return;
-  if(!confirm(`حذف ${window._albSelected.size} ألبوم؟`))return;
+  customConfirm(`حذف ${window._albSelected.size} ألبوم؟`,()=>{
   const indices=[...window._albSelected].sort((a,b)=>b-a);
   indices.forEach(i=>DB.albums.splice(i,1));
   sv('albums',DB.albums);
   window._albSelected=new Set();
   openAlbumManager();
+  });
 }
 
 function createAlbum(){
@@ -2967,12 +3191,13 @@ function toggleAlbPhoto(albIdx,pi){
 
 function delSelectedAlbPhotos(i){
   if(!window._albPhotoSelected||!window._albPhotoSelected.size)return;
-  if(!confirm(`حذف ${window._albPhotoSelected.size} صورة؟`))return;
+  customConfirm(`حذف ${window._albPhotoSelected.size} صورة؟`,()=>{
   const indices=[...window._albPhotoSelected].sort((a,b)=>b-a);
   indices.forEach(pi=>DB.albums[i].photos.splice(pi,1));
   sv('albums',DB.albums);
   window._albPhotoSelected=new Set();
   openAlbum(i);
+  });
 }
 
 function viewAlbumPhoto(src,albIdx){
@@ -3040,7 +3265,7 @@ function uploadDocs(input){
           r.onerror=()=>finish();
           r.readAsDataURL(f);
         }else{
-          alert('الملف كبير جداً — حاول مع ملف أصغر');finish();
+          customAlert('الملف كبير جداً — حاول مع ملف أصغر');finish();
         }
       });
 
@@ -3098,12 +3323,13 @@ function addDocNote(){
   );
 }
 function delDoc(i){
-  if(!confirm('حذف؟'))return;
+  customConfirm('حذف؟',()=>{
   const d=DB.documents[i];
   if(d&&d.idbId)delMediaBlob(d.idbId);
   DB.documents.splice(i,1);
   sv('documents',DB.documents);
   window._docsRender&&window._docsRender();
+  });
 }
 function editDoc(i){
   const d=DB.documents[i];
@@ -3125,7 +3351,7 @@ function viewDoc(i){
   // الفيديو يستخدم blobUrl
   if(d.type==='video'){
     const show=(src)=>{
-      if(!src){alert('أعد رفع الفيديو');return;}
+      if(!src){customAlert('أعد رفع الفيديو');return;}
       const ov5=_makeOv(d.name||'فيديو','#000');
       const vid2=document.createElement('video');
       vid2.src=src;vid2.controls=true;vid2.autoplay=true;vid2.playsInline=true;
@@ -3140,7 +3366,7 @@ function viewDoc(i){
 
   if(d.type==='audio'){
     const play=(src)=>{
-      if(!src){alert('أعد رفع الملف الصوتي');return;}
+      if(!src){customAlert('أعد رفع الملف الصوتي');return;}
       const ov6=document.createElement('div');
       ov6.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px';
       ov6.innerHTML=`<div style="color:#fff;font-size:40px">🎵</div>
@@ -3155,7 +3381,7 @@ function viewDoc(i){
   }
 
   var data=d.data||(d.objId&&window._docFiles?window._docFiles[d.objId]:null);
-  if(!data){alert('أعد رفع الملف');return;}
+  if(!data){customAlert('أعد رفع الملف');return;}
 
   // ── صورة ──
   if(d.type==='image'){
@@ -3225,7 +3451,7 @@ function viewDoc(i){
         sp.onerror=function(){ovPdf.body.innerHTML='<div style="color:#f5576c;text-align:center;padding:30px">❌ تعذر تحميل PDF.js</div>';};
         document.head.appendChild(sp);
       }
-    }catch(e){alert('تعذر فتح PDF: '+e.message);}
+    }catch(e){customAlert('تعذر فتح PDF: '+e.message);}
     return;
   }
 
@@ -3260,7 +3486,7 @@ function viewDoc(i){
         s.onerror=function(){ov2.body.innerHTML='<div style="color:#f5576c;text-align:center;padding:30px">❌ تعذر تحميل مكتبة Excel</div>';};
         document.head.appendChild(s);
       }
-    }catch(e){alert('تعذر فتح Excel: '+e.message);}
+    }catch(e){customAlert('تعذر فتح Excel: '+e.message);}
     return;
   }
 
@@ -3289,7 +3515,7 @@ function viewDoc(i){
         sm.onerror=function(){ov3.body.innerHTML='<div style="color:#f5576c;text-align:center;padding:30px">❌ تعذر تحميل مكتبة Word</div>';};
         document.head.appendChild(sm);
       }
-    }catch(e){alert('تعذر فتح Word: '+e.message);}
+    }catch(e){customAlert('تعذر فتح Word: '+e.message);}
     return;
   }
 
@@ -3318,7 +3544,7 @@ function viewDoc(i){
       aud2.style.cssText='width:90%;margin:auto';ov5.body.style.alignItems='center';ov5.body.appendChild(aud2);
     }
     document.body.appendChild(ov5.el);
-  }catch(e){alert('تعذر فتح الملف: '+e.message);}
+  }catch(e){customAlert('تعذر فتح الملف: '+e.message);}
 }
 
 function _b64Blob(b64,mime){
@@ -3374,13 +3600,29 @@ window.addEventListener('popstate', function(){
 });
 
 // ── PASSWORD GATE ──
-function checkPasswordGate(cb){
+async function checkPasswordGate(cb){
   // إصلاح apppass لو كان متحفظ بشكل خاطئ (مع JSON quotes)
   let stored=localStorage.getItem('tdb_apppass');
   if(stored&&stored.startsWith('"')&&stored.endsWith('"')){
     stored=JSON.parse(stored);
     localStorage.setItem('tdb_apppass',stored);
   }
+  // جلب كلمة المرور المحدثة من السحابة قبل عرض الشاشة (يضمن أن أي جهاز/متصفح جديد يطلب نفس كلمة المرور)
+  try{
+    if(typeof db!=='undefined'&&typeof CLOUD_DOC!=='undefined'){
+      const snap=await db.collection('tdb').doc(CLOUD_DOC).get();
+      if(snap.exists){
+        const cloudData=JSON.parse(snap.data().value);
+        if(cloudData.apppass){
+          stored=cloudData.apppass;
+          localStorage.setItem('tdb_apppass',stored);
+        }else if(cloudData.apppass===''){
+          stored=null;
+          localStorage.removeItem('tdb_apppass');
+        }
+      }
+    }
+  }catch(e){}
   showSplashGate(stored, cb);
 }
 
@@ -3438,36 +3680,15 @@ function showSplashGate(stored, cb){
     setTimeout(()=>{document.body.removeChild(gate);cb();},400);
   }
 
-  let failCount=0;
   function tryLogin(){
     if(!stored){closeGate();return;}
     const val=inp?inp.value:'';
     if(btoa(val)===stored){
-      failCount=0;
       closeGate();
     }else{
-      failCount++;
       if(err)err.textContent='❌ كلمة المرور غير صحيحة';
       if(inp){inp.style.borderColor='#f5576c';inp.value='';}
       setTimeout(()=>{if(inp)inp.style.borderColor='#c9a84c';if(err)err.textContent='';},2000);
-      // بعد 3 محاولات خاطئة يظهر زر نسيت كلمة المرور
-      if(failCount>=3){
-        let forgotBtn=gate.querySelector('#forgot-btn');
-        if(!forgotBtn){
-          forgotBtn=document.createElement('div');
-          forgotBtn.id='forgot-btn';
-          forgotBtn.style.cssText='text-align:center;margin-top:10px;cursor:pointer;color:#c9a84c;font-size:13px;text-decoration:underline';
-          forgotBtn.textContent='نسيت كلمة المرور؟';
-          forgotBtn.onclick=()=>{
-            if(confirm('⚠️ سيتم حذف كلمة المرور من هذا الجهاز فقط.\nهل تريد المتابعة؟')){
-              localStorage.removeItem('tdb_apppass');
-              gate.style.opacity='0';
-              setTimeout(()=>{document.body.removeChild(gate);cb();},400);
-            }
-          };
-          gate.querySelector('#gate-btn').after(forgotBtn);
-        }
-      }
     }
   }
   btn.onclick=tryLogin;
