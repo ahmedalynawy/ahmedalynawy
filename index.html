@@ -3600,33 +3600,44 @@ window.addEventListener('popstate', function(){
 });
 
 // ── PASSWORD GATE ──
-async function checkPasswordGate(cb){
+function checkPasswordGate(cb){
   // إصلاح apppass لو كان متحفظ بشكل خاطئ (مع JSON quotes)
   let stored=localStorage.getItem('tdb_apppass');
   if(stored&&stored.startsWith('"')&&stored.endsWith('"')){
     stored=JSON.parse(stored);
     localStorage.setItem('tdb_apppass',stored);
   }
-  // جلب كلمة المرور المحدثة من السحابة قبل عرض الشاشة (يضمن أن أي جهاز/متصفح جديد يطلب نفس كلمة المرور)
+  // نعرض واجهة كلمة المرور فوراً بدون أي انتظار
+  const state={pass:stored,loggedIn:false};
+  showSplashGate(state, cb);
+  // نتأكد من كلمة المرور المحدثة من السحابة بالخلفية (لا يؤخر ظهور الواجهة)
   try{
     if(typeof db!=='undefined'&&typeof CLOUD_DOC!=='undefined'){
-      const snap=await db.collection('tdb').doc(CLOUD_DOC).get();
-      if(snap.exists){
-        const cloudData=JSON.parse(snap.data().value);
-        if(cloudData.apppass){
-          stored=cloudData.apppass;
-          localStorage.setItem('tdb_apppass',stored);
-        }else if(cloudData.apppass===''){
-          stored=null;
-          localStorage.removeItem('tdb_apppass');
+      db.collection('tdb').doc(CLOUD_DOC).get().then(snap=>{
+        if(state.loggedIn)return; // المستخدم دخل مسبقاً، لا داعي للتحديث
+        const hadPass=!!state.pass;
+        if(snap&&snap.exists){
+          const cloudData=JSON.parse(snap.data().value);
+          if(cloudData.apppass){
+            state.pass=cloudData.apppass;
+            localStorage.setItem('tdb_apppass',cloudData.apppass);
+          }else if(cloudData.apppass===''){
+            state.pass=null;
+            localStorage.removeItem('tdb_apppass');
+          }
         }
-      }
+        // لو تغيرت حالة وجود كلمة المرور (ظهرت متأخرة) وما زالت الشاشة مفتوحة، نعيد رسمها لإظهار خانة الإدخال
+        if(!!state.pass!==hadPass&&document.body.contains(state.gateEl)){
+          document.body.removeChild(state.gateEl);
+          showSplashGate(state, cb);
+        }
+      }).catch(()=>{});
     }
   }catch(e){}
-  showSplashGate(stored, cb);
 }
 
-function showSplashGate(stored, cb){
+function showSplashGate(state, cb){
+  const stored=state.pass;
   const gate=document.createElement('div');
   gate.style.cssText='position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0a1628 0%,#0d2040 40%,#0a1a35 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:Tajawal,sans-serif;transition:opacity .4s';
   const stars=Array.from({length:30},()=>`<div style="position:absolute;width:${(Math.random()*3+1).toFixed(1)}px;height:${(Math.random()*3+1).toFixed(1)}px;background:#c9a84c;border-radius:50%;opacity:${(Math.random()*.4+.1).toFixed(2)};top:${(Math.random()*100).toFixed(1)}%;left:${(Math.random()*100).toFixed(1)}%"></div>`).join('');
@@ -3670,20 +3681,22 @@ function showSplashGate(stored, cb){
     </div>`;
 
   document.body.appendChild(gate);
+  state.gateEl=gate;
   const btn=gate.querySelector('#gate-btn');
   const inp=gate.querySelector('#gate-inp');
   const err=gate.querySelector('#gate-err');
   if(inp)inp.focus();
 
   function closeGate(){
+    state.loggedIn=true;
     gate.style.opacity='0';
-    setTimeout(()=>{document.body.removeChild(gate);cb();},400);
+    setTimeout(()=>{if(document.body.contains(gate))document.body.removeChild(gate);cb();},400);
   }
 
   function tryLogin(){
-    if(!stored){closeGate();return;}
+    if(!state.pass){closeGate();return;}
     const val=inp?inp.value:'';
-    if(btoa(val)===stored){
+    if(btoa(val)===state.pass){
       closeGate();
     }else{
       if(err)err.textContent='❌ كلمة المرور غير صحيحة';
