@@ -10,10 +10,11 @@
 <meta name="apple-mobile-web-app-title" content="قاعدة الكلية">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>قاعدة تصميم احميدة العيناوي</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
+<style>html,body{background:#0a1628;margin:0}</style>
+<script defer>
 const firebaseConfig = {
   apiKey: "AIzaSyB2ApaKYijeKrrsoValyUnlALovx35VLWc",
   authDomain: "ahmedalynawy2005.firebaseapp.com",
@@ -304,6 +305,13 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 </style>
 </head>
 <body>
+
+<!-- شاشة انتظار فورية (HTML/CSS صرف) تظهر لحظة فتح الرابط قبل تحميل أي سكربت، لمنع أي وميض أبيض -->
+<div id="pre-gate" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#0a1628 0%,#0d2040 40%,#0a1a35 100%);display:flex;align-items:center;justify-content:center">
+  <div style="width:54px;height:54px;border:2px solid #c9a84c;border-radius:50%;background:linear-gradient(135deg,#0f2d4a,#1a3d5c);display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px rgba(201,168,76,.3)">
+    <span style="font-size:24px">🎓</span>
+  </div>
+</div>
 
 <!-- ══════════════════ HOME ══════════════════ -->
 <div id="home">
@@ -3637,6 +3645,8 @@ function checkPasswordGate(cb){
 }
 
 function showSplashGate(state, cb){
+  const preGate=document.getElementById('pre-gate');
+  if(preGate)preGate.remove();
   const stored=state.pass;
   const gate=document.createElement('div');
   gate.style.cssText='position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0a1628 0%,#0d2040 40%,#0a1a35 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:Tajawal,sans-serif;transition:opacity .4s';
