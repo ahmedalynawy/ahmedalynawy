@@ -26,6 +26,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+// تسجيل دخول مجهول تلقائي — يضمن اتصال موحّد بقاعدة البيانات من أي متصفح أو جهاز بدون أي حساب
+window._authReady=firebase.auth().signInAnonymously().catch(e=>{console.log('auth error:',e.code,e.message);});
 
 // معرف ثابت للبيانات المشتركة بين كل الأجهزة
 const CLOUD_DOC = 'ahmedalynawy2005_data';
@@ -72,6 +74,7 @@ function preserveLargeLocal(key,cloudValue){
 }
 window.saveAllToCloud=async function(){
   try{
+    if(window._authReady)await window._authReady;
     const all={};
     // حفظ الـ keys الثابتة
     DB_KEYS.forEach(k=>{const v=localStorage.getItem('tdb_'+k);if(v)all[k]=JSON.parse(v);});
@@ -130,6 +133,7 @@ window.saveAllToCloud=async function(){
 
 window.loadFromCloud=async function(){
   try{
+    if(window._authReady)await window._authReady;
     const snap=await db.collection('tdb').doc(CLOUD_DOC).get();
     if(snap.exists){
       const allData=JSON.parse(snap.data().value);
@@ -161,6 +165,7 @@ window.startRealtimeSync=function(){
   if(typeof db==='undefined'||typeof CLOUD_DOC==='undefined')return;
   if(window._realtimeUnsub)window._realtimeUnsub();
   let firstCall=true;
+  const attach=()=>{
   window._realtimeUnsub=db.collection('tdb').doc(CLOUD_DOC).onSnapshot(snap=>{
     if(firstCall){firstCall=false;return;} // تجاهل أول استجابة (عند التشغيل)
     if(!snap.exists)return;
@@ -193,6 +198,8 @@ window.startRealtimeSync=function(){
       }
     }catch(e){console.log('realtime error:',e);}
   },err=>console.log('snapshot error:',err));
+  };
+  if(window._authReady)window._authReady.then(attach);else attach();
 };
 </script>
 
@@ -3956,7 +3963,8 @@ function checkPasswordGate(cb){
   // نتأكد من كلمة المرور المحدثة من السحابة بالخلفية (لا يؤخر ظهور الواجهة)
   try{
     if(typeof db!=='undefined'&&typeof CLOUD_DOC!=='undefined'){
-      db.collection('tdb').doc(CLOUD_DOC).get().then(snap=>{
+      const authP=(typeof window._authReady!=='undefined'&&window._authReady)?window._authReady:Promise.resolve();
+      authP.then(()=>db.collection('tdb').doc(CLOUD_DOC).get()).then(snap=>{
         if(state.loggedIn)return; // المستخدم دخل مسبقاً، لا داعي للتحديث
         const hadPass=!!state.pass;
         if(snap&&snap.exists){
